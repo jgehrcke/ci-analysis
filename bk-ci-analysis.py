@@ -388,6 +388,13 @@ def fetch_all_builds(orgslug, pipelineslug, states):
         states=[BuildState.FINISHED],
         with_pagination=True,
     )
+        builds_resp = BK_CLIENT.builds().list_all_for_pipeline(
+            orgslug,
+            pipelineslug,
+            page=builds_resp.next_page,
+            states=states,
+            with_pagination=True,
+        )
 
     # `builds_resp.body` is already deserialized, interestingly (not a body,
     # i.e. not str or bytes).
@@ -397,8 +404,6 @@ def fetch_all_builds(orgslug, pipelineslug, states):
 
     while builds_resp.next_page:
         log.info("getting next page")
-        builds_resp = BK_CLIENT.builds().list_all(
-            page=builds_resp.next_page, with_pagination=True
         )
         builds_cur_page = builds_resp.body
         log.info("got %s builds", len(builds_cur_page))
