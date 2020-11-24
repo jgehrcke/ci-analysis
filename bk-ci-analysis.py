@@ -176,6 +176,11 @@ def rewrite_build_objects(builds):
         b["duration_seconds"] = (b["finished_at"] - b["started_at"]).total_seconds()
 
         for j in b["jobs"]:
+            # may want to be able to associate a job with a build again later
+            # on. shortcut for now, can extract build number from build_url
+            # later.
+            j["build_number"] = 1
+
             for dtprop in ("created_at", "started_at", "scheduled_at", "finished_at"):
 
                 try:
@@ -266,14 +271,10 @@ def identify_top_n_step_keys(builds, top_n):
 
 def construct_df_for_jobs(jobs):
 
-    log.info("do not extract build numbers, these are jobs")
-    # shortcut for now, can extract build number from build_url later
-    build_numbers = [1 for j in jobs]
-
     log.info("build pandas dataframe for passed jobs")
     df_dict = {
         "started_at": [j["started_at"] for j in jobs],
-        "build_number": build_numbers,
+        "build_number": [j["build_number"] for j in jobs],
         "duration_seconds": [j["duration_seconds"] for j in jobs],
     }
 
@@ -286,11 +287,10 @@ def construct_df_for_jobs(jobs):
 
 def construct_df_for_builds(builds, jobs=False, ignore_builds=None):
 
-    build_numbers = [b["number"] for b in builds]
     log.info("build pandas dataframe for passed builds")
     df_dict = {
         "started_at": [b["started_at"] for b in builds],
-        "build_number": build_numbers,
+        "build_number": [b["number"] for b in builds],
         "duration_seconds": [b["duration_seconds"] for b in builds],
     }
 
