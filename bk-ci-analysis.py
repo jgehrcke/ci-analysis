@@ -61,14 +61,16 @@ def main():
     parse_args()
 
     builds = load_all_builds(CLIARGS.org, CLIARGS.pipeline, [BuildState.FINISHED])
-    builds_passed = [b for b in builds if b["state"] == "passed"]
-    log.info("builds PASSED: %s", len(builds_passed))
+    builds = rewrite_build_objects(builds)
 
-    log.info("identify the set of step keys observed across all passed builds")
-    step_key_counter, jobs_by_key = identify_top_n_step_keys(builds_passed, 7)
+    # From here on, `builds` are only PASSED builds.
+    builds = filter_builds(builds)
 
-    # Analysis and plots for entire pipeline.
-    df_passed = construct_df(builds_passed)
+    log.info("identify the set of step keys observed across builds")
+    step_key_counter, jobs_by_key = identify_top_n_step_keys(builds, 7)
+
+    # Analysis and plots for entire pipeline, for passed builds.
+    df_passed = construct_df_for_builds(builds)
 
     (
         _,
@@ -151,6 +153,82 @@ def parse_args():
     OUTDIR = args.output_directory
 
 
+def rewrite_build_objects(builds):
+    log.info("process %s builds, rewrite meta data", len(builds))
+
+    # log.info("rewrite timestamp strings into datetime objects")
+    # Use `fromisoformat()`, introduced in stdlib in 3.7:
+    #
+    # >>> from datetime import datetime
+    # >>> ts = datetime.fromisoformat("2020-11-22T12:01:15.000")
+    # >>> ts
+    # datetime.datetime(2020, 11, 22, 12, 1, 15)
+    # >>> ts = datetime.fromisoformat("2020-11-22T12:01:15.000Z".replace('Z', '+00:00'))
+    # >>> ts
+    # datetime.datetime(2020, 11, 22, 12, 1, 15, tzinfo=datetime.timezone.utc)
+
+    # Enrich each build object with meta data used later.
+    for b in builds:
+
+        for dtprop in ("created_at", "started_at", "scheduled_at", "finished_at"):
+            b[dtprop] = datetime.fromisoformat(b[dtprop].replace("Z", "+00:00"))
+
+        b["duration_seconds"] = (b["finished_at"] - b["started_at"]).total_seconds()
+
+        for j in b["jobs"]:
+            for dtprop in ("created_at", "started_at", "scheduled_at", "finished_at"):
+
+                try:
+                    j[dtprop] = datetime.fromisoformat(j[dtprop].replace("Z", "+00:00"))
+                except AttributeError:
+                    # `started_at` may be null/None: job did not start
+                    # -> 'NoneType' object has no attribute 'replace'
+                    continue
+            try:
+                j["duration_seconds"] = (
+                    j["finished_at"] - j["started_at"]
+                ).total_seconds()
+            except TypeError:
+                # unsupported operand type(s) for -: 'NoneType' and 'NoneType'
+                j["duration_seconds"] = None
+
+    log.info("done re-writing builds")
+    return builds
+
+
+def filter_builds(builds):
+
+    log.info("filter builds: passed")
+    builds_kept = [b for b in builds if b["state"] == "passed"]
+    log.info("survived filter: %s", len(builds_kept))
+    log.info("dropped by filter: %s", len(builds) - len(builds_kept))
+
+    if CLIARGS.ignore_builds_shorter_than:
+        builds = builds_kept
+        log.info("filter builds: ignore_builds_shorter_than")
+        builds_kept = [
+            b
+            for b in builds
+            if b["duration_seconds"] >= CLIARGS.ignore_builds_shorter_than
+        ]
+        log.info("survived filter: %s", len(builds_kept))
+        log.info("dropped by filter: %s", len(builds) - len(builds_kept))
+
+    if CLIARGS.ignore_builds_longer_than:
+        builds = builds_kept
+        log.info("filter builds: ignore_builds_longer_than")
+        builds_kept = [
+            b
+            for b in builds
+            if b["duration_seconds"] <= CLIARGS.ignore_builds_longer_than
+        ]
+        log.info("survived filter: %s", len(builds_kept))
+        log.info("dropped by filter: %s", len(builds) - len(builds_kept))
+
+    builds = builds_kept
+    return builds
+
+
 def identify_top_n_step_keys(builds, top_n):
     # Build up a dictionary while iterating of over all jobs. The keys in that
     # dict are the job keys. For each job key, construct a list of
@@ -187,19 +265,6 @@ def identify_top_n_step_keys(builds, top_n):
 
 
 def construct_df_for_jobs(jobs):
-    log.info("rewrite timestamp strings into datetime objects")
-    # Use `fromisoformat()`, introduced in stdlib in 3.7:
-    #
-    # >>> from datetime import datetime
-    # >>> ts = datetime.fromisoformat("2020-11-22T12:01:15.000")
-    # >>> ts
-    # datetime.datetime(2020, 11, 22, 12, 1, 15)
-    # >>> ts = datetime.fromisoformat("2020-11-22T12:01:15.000Z".replace('Z', '+00:00'))
-    # >>> ts
-    # datetime.datetime(2020, 11, 22, 12, 1, 15, tzinfo=datetime.timezone.utc)
-    for j in jobs:
-        for dtprop in ("created_at", "started_at", "scheduled_at", "finished_at"):
-            j[dtprop] = datetime.fromisoformat(j[dtprop].replace("Z", "+00:00"))
 
     log.info("do not extract build numbers, these are jobs")
     # shortcut for now, can extract build number from build_url later
@@ -209,9 +274,7 @@ def construct_df_for_jobs(jobs):
     df_dict = {
         "started_at": [j["started_at"] for j in jobs],
         "build_number": build_numbers,
-        "duration_seconds": [
-            (j["finished_at"] - j["started_at"]).total_seconds() for j in jobs
-        ],
+        "duration_seconds": [j["duration_seconds"] for j in jobs],
     }
 
     df = pd.DataFrame(df_dict, index=[pd.Timestamp(j["started_at"]) for j in jobs])
@@ -221,68 +284,17 @@ def construct_df_for_jobs(jobs):
     return df
 
 
-def construct_df(builds, jobs=False, ignore_builds=None):
-
-    log.info("rewrite timestamp strings into datetime objects")
-    # Use `fromisoformat()`, introduced in stdlib in 3.7:
-    #
-    # >>> from datetime import datetime
-    # >>> ts = datetime.fromisoformat("2020-11-22T12:01:15.000")
-    # >>> ts
-    # datetime.datetime(2020, 11, 22, 12, 1, 15)
-    # >>> ts = datetime.fromisoformat("2020-11-22T12:01:15.000Z".replace('Z', '+00:00'))
-    # >>> ts
-    # datetime.datetime(2020, 11, 22, 12, 1, 15, tzinfo=datetime.timezone.utc)
-    for b in builds:
-        for dtprop in ("created_at", "started_at", "scheduled_at", "finished_at"):
-            b[dtprop] = datetime.fromisoformat(b[dtprop].replace("Z", "+00:00"))
+def construct_df_for_builds(builds, jobs=False, ignore_builds=None):
 
     build_numbers = [b["number"] for b in builds]
     log.info("build pandas dataframe for passed builds")
     df_dict = {
         "started_at": [b["started_at"] for b in builds],
         "build_number": build_numbers,
-        "duration_seconds": [
-            (b["finished_at"] - b["started_at"]).total_seconds() for b in builds
-        ],
+        "duration_seconds": [b["duration_seconds"] for b in builds],
     }
 
     df = pd.DataFrame(df_dict, index=[pd.Timestamp(b["started_at"]) for b in builds])
-
-    log.info("pre filter len(df): %s", len(df))
-    if CLIARGS.ignore_builds_shorter_than is not None:
-        log.info(
-            "drop builds shorter than %s seconds", CLIARGS.ignore_builds_shorter_than
-        )
-        # Filter bad builds that on the one hand are 'passed', but on the other
-        # hand are obvious bad builds identifyable by a way too low duration.
-
-        df_drop = df[df.duration_seconds < CLIARGS.ignore_builds_shorter_than]
-        if len(df_drop):
-            df_cleaned = df.drop(df_drop.index)
-            log.info("dropped %s builds", len(df) - len(df_cleaned))
-            df = df_cleaned
-        else:
-            log.info("nothing dropped")
-
-    if CLIARGS.ignore_builds_longer_than is not None:
-        log.info(
-            "drop builds longer than %s seconds", CLIARGS.ignore_builds_longer_than
-        )
-        # Filter bad builds that on the one hand are 'passed', but on the other
-        # hand are obvious bad builds identifyable by a way too low duration.
-
-        df_drop = df[df.duration_seconds > CLIARGS.ignore_builds_longer_than]
-        if len(df_drop):
-            df_cleaned = df.drop(df_drop.index)
-            log.info("dropped %s builds", len(df) - len(df_cleaned))
-            log.info("dropped:")
-            print(df_drop)
-            df = df_cleaned
-        else:
-            log.info("nothing dropped")
-
-    log.info("post filter len(df): %s", len(df))
 
     # Sort by time, from past to future.
     log.info("df: sort by time")
