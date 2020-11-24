@@ -256,11 +256,13 @@ def construct_df(builds, jobs=False, ignore_builds=None):
         # Filter bad builds that on the one hand are 'passed', but on the other
         # hand are obvious bad builds identifyable by a way too low duration.
 
-        df_cleaned = df.drop(
-            df[df.duration_seconds < CLIARGS.ignore_builds_shorter_than].index
-        )
-        log.info("dropped %s builds", len(df) - len(df_cleaned))
-        df = df_cleaned
+        df_drop = df[df.duration_seconds < CLIARGS.ignore_builds_shorter_than]
+        if len(df_drop):
+            df_cleaned = df.drop(df_drop.index)
+            log.info("dropped %s builds", len(df) - len(df_cleaned))
+            df = df_cleaned
+        else:
+            log.info("nothing dropped")
 
     if CLIARGS.ignore_builds_longer_than is not None:
         log.info(
@@ -269,14 +271,15 @@ def construct_df(builds, jobs=False, ignore_builds=None):
         # Filter bad builds that on the one hand are 'passed', but on the other
         # hand are obvious bad builds identifyable by a way too low duration.
 
-        df_cleaned = df.drop(
-            df[df.duration_seconds > CLIARGS.ignore_builds_longer_than].index
-        )
-        log.info("dropped %s builds", len(df) - len(df_cleaned))
-        dropped = df[df.duration_seconds > CLIARGS.ignore_builds_longer_than]
-        log.info("dropped:")
-        print(dropped)
-        df = df_cleaned
+        df_drop = df[df.duration_seconds > CLIARGS.ignore_builds_longer_than]
+        if len(df_drop):
+            df_cleaned = df.drop(df_drop.index)
+            log.info("dropped %s builds", len(df) - len(df_cleaned))
+            log.info("dropped:")
+            print(df_drop)
+            df = df_cleaned
+        else:
+            log.info("nothing dropped")
 
     # Sort by time, from past to future.
     log.info("df: sort by time")
