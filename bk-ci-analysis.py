@@ -26,6 +26,7 @@ import sys
 import re
 import shutil
 import textwrap
+import time
 from datetime import datetime
 from collections import Counter, defaultdict
 from io import StringIO
@@ -89,7 +90,7 @@ def main():
     # Analysis and plots for top N build steps.
     for step_key, count in step_key_counter.most_common(4):
         # Analysis and plots for a specific job key
-        log.info("generate dataframe from list of jobs: %s", step_key)
+        log.info("generate dataframe from list of jobs for step: %s", step_key)
         df_job = construct_df_for_jobs(jobs_by_key[step_key])
         print(df_job)
         plot_duration(
@@ -101,7 +102,6 @@ def main():
             title=step_key,
             convert_to_hours=True,
         )
-        sys.exit()
 
 
 def parse_args():
@@ -249,6 +249,7 @@ def construct_df(builds, jobs=False, ignore_builds=None):
 
     df = pd.DataFrame(df_dict, index=[pd.Timestamp(b["started_at"]) for b in builds])
 
+    log.info("pre filter len(df): %s", len(df))
     if CLIARGS.ignore_builds_shorter_than is not None:
         log.info(
             "drop builds shorter than %s seconds", CLIARGS.ignore_builds_shorter_than
@@ -280,6 +281,8 @@ def construct_df(builds, jobs=False, ignore_builds=None):
             df = df_cleaned
         else:
             log.info("nothing dropped")
+
+    log.info("post filter len(df): %s", len(df))
 
     # Sort by time, from past to future.
     log.info("df: sort by time")
@@ -385,6 +388,12 @@ def load_all_builds(orgslug, pipelineslug, states):
         return builds
 
     log.info("loaded %s builds from disk", len(builds_cached))
+
+    skip_if_newer_than_mins = 300
+    cache_age_minutes = (time.time() - os.stat(cache_filepath).st_mtime) / 60.0
+    if cache_age_minutes < skip_if_newer_than_mins:
+        log.info("skip remote fetch: cache written %.1f minutes ago", cache_age_minutes)
+        return builds_cached
 
     # rely on sort order!
     newest_build_in_cache = builds_cached[0]
