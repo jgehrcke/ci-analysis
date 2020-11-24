@@ -59,7 +59,7 @@ logging.basicConfig(
 def main():
     parse_args()
 
-    builds = fetch_all_builds(CLIARGS.org, CLIARGS.pipeline, [BuildState.FINISHED])
+    builds = load_all_builds(CLIARGS.org, CLIARGS.pipeline, [BuildState.FINISHED])
     builds_passed = [b for b in builds if b["state"] == "passed"]
     log.info("builds PASSED: %s", len(builds_passed))
 
@@ -369,25 +369,105 @@ def plot_duration(
     )
 
 
-def fetch_all_builds(orgslug, pipelineslug, states):
+def load_all_builds(orgslug, pipelineslug, states):
 
     cache_filepath = "builds.pickle"
     builds_cached = load_file_if_exists(cache_filepath)
 
-    if builds_cached is not None:
-        log.info("Loaded %s builds from disk", len(builds_cached))
-        log.info("TODO: update (forward-fill)")
-        return builds_cached
+    if builds_cached is None:
+        log.info("no cache found, fetch all builds")
+        builds = fetch_builds(orgslug, pipelineslug, states)
+        log.info("persist to disk (pickle cache) -- all builds were fetched freshly")
+        persist_data(builds, cache_filepath)
+        return builds
 
-    # Get all running and scheduled builds for a particular pipeline
+    log.info("loaded %s builds from disk", len(builds_cached))
+
+    # rely on sort order!
+    newest_build_in_cache = builds_cached[0]
+    log.info("newest build number in cache: %s", newest_build_in_cache["number"])
+    log.info("update (forward-fill)")
+    new_builds = fetch_builds(
+        orgslug,
+        pipelineslug,
+        states,
+        only_newer_than_build_number=newest_build_in_cache["number"],
+    )
+
+    builds = builds_cached
+    builds.extend(new_builds)
+    persist_data(builds, cache_filepath)
+    # for i, b in enumerate(builds):
+    #     if b["number"] == 2178:
+    #         print(json.dumps(b, indent=2))
+    #     if not isinstance(b["number"], int):
+    #         print(type(b["number"]))
+    #     if i % 10 == 0:
+    #         print(b["number"])
+
+    log.info(
+        "persist to disk (pickle cache): combination of previous cache and newly fetched builds"
+    )
+    persist_data(builds, cache_filepath)
+    return builds
+
+
+def fetch_builds(orgslug, pipelineslug, states, only_newer_than_build_number=-1):
+
     builds = []
+
+    def _process_response_page(builds_resp):
+        """
+        Process response. Populate the `builds` list.
+
+        Notes:
+
+        - `builds_resp.body` is already deserialized, interestingly (not a
+          body, i.e. not str or bytes).
+
+        -  Rely on sort order as of API docs: "Builds are listed in the order
+           they were created (newest first)." That is, this sort order is from
+           newer to older. Stop iteration when observing the first build that
+           is "too old".
+        """
+
+        builds_cur_page = builds_resp.body
+        log.info(f"got {len(builds_cur_page)} builds in paginated response")
+
+        for b in builds_cur_page:
+            # Adding this because I realized that despite having filtered
+            # by pipeline there were other builds in the responses, specifically
+            # ``"slug": "prs"``
+            if b["pipeline"]["slug"] != pipelineslug:
+                log.error(
+                    "got unexpected build in response, with pipeline slug %s",
+                    b["pipeline"]["slug"],
+                )
+            if b["number"] > only_newer_than_build_number:
+                builds.append(b)
+            else:
+                log.info(
+                    "current page contains build %s and older -- drop, stop fetching",
+                    b["number"],
+                )
+                # Signal to caller that no more pages should be fetched.
+                return False
+
+        log.info('current page returned only "new builds", keep fetching')
+        return True
+
+    log.info("fetch builds: get first page (newest builds first)")
 
     builds_resp = BK_CLIENT.builds().list_all_for_pipeline(
         orgslug,
         pipelineslug,
-        states=[BuildState.FINISHED],
+        states=states,
         with_pagination=True,
     )
+    continue_fetching = _process_response_page(builds_resp)
+
+    while continue_fetching and builds_resp.next_page:
+        log.info("builds_resp.next_page: %s", builds_resp.next_page)
         builds_resp = BK_CLIENT.builds().list_all_for_pipeline(
             orgslug,
             pipelineslug,
@@ -395,23 +475,19 @@ def fetch_all_builds(orgslug, pipelineslug, states):
             states=states,
             with_pagination=True,
         )
+        continue_fetching = _process_response_page(builds_resp)
+        if not builds_resp.next_page:
+            log.info("last page says there is no next page")
 
-    # `builds_resp.body` is already deserialized, interestingly (not a body,
-    # i.e. not str or bytes).
-    builds_cur_page = builds_resp.body
-    log.info(f"got {len(builds_cur_page)} builds")
-    builds.extend(builds_cur_page)
+    log.info("fetched data for %s finished builds", len(builds))
 
-    while builds_resp.next_page:
-        log.info("getting next page")
+    if builds:
+        log.info(
+            "newest build number / oldest build number: %s /%s",
+            builds[0]["number"],
+            builds[-1]["number"],
         )
-        builds_cur_page = builds_resp.body
-        log.info("got %s builds", len(builds_cur_page))
 
-        builds.extend(builds_cur_page)
-
-    log.info("got data for %s finished builds", len(builds))
-    persist_data(builds, cache_filepath)
     return builds
 
 
@@ -564,7 +640,12 @@ def load_file_if_exists(filepath):
 
 def persist_data(obj, filepath):
     data = pickle.dumps(obj)
-    log.info("persist %s byte(s) to file %s", len(data), filepath)
+    log.info(
+        "persist %s byte(s) (%.2f MiB) to file %s",
+        len(data),
+        len(data) / 1024.0 / 1024.0,
+        filepath,
+    )
     with open(filepath, "wb") as f:
         f.write(data)
 
