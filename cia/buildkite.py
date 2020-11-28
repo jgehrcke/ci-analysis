@@ -24,17 +24,35 @@
 Buildkite-specific dingeling.
 """
 
+import os
 import logging
+import time
+from collections import Counter, defaultdict
+from datetime import datetime
 
 import pandas as pd
+from pybuildkite.buildkite import Buildkite, BuildState
 
 import cia.plot as plot
+import cia.utils as utils
+import cia.filter as bfilter
+from cia.cfg import CFG
+
 
 log = logging.getLogger(__name__)
 
 
 BK_CLIENT = Buildkite()
 BK_CLIENT.set_access_token(os.environ["BUILDKITE_API_TOKEN"])
+
+
+def main():
+    builds_raw = load_all_builds(
+        CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED]
+    )
+    builds = rewrite_build_objects(builds_raw)
+    builds = bfilter.filter_builds_based_on_duration(builds)
+    analyze_passed_builds(bfilter.filter_builds_passed(builds))
 
 
 def analyze_passed_builds(builds):
@@ -186,7 +204,7 @@ def identify_top_n_step_keys(builds, top_n):
     step_key_counter = Counter([k for k in step_keys])
 
     log.info("top %s executed build steps (by step key)", top_n)
-    tabletext = get_mdtable(
+    tabletext = utils.get_mdtable(
         ["step key", "number of executions"],
         [[item, count] for item, count in step_key_counter.most_common(top_n)],
     )
@@ -277,13 +295,13 @@ def fetch_builds(orgslug, pipelineslug, states, only_newer_than_build_number=-1)
 def load_all_builds(orgslug, pipelineslug, states):
 
     cache_filepath = "builds.pickle"
-    builds_cached = load_file_if_exists(cache_filepath)
+    builds_cached = utils.load_pickle_file_if_exists(cache_filepath)
 
     if builds_cached is None:
         log.info("no cache found, fetch all builds")
         builds = fetch_builds(orgslug, pipelineslug, states)
         log.info("persist to disk (pickle cache) -- all builds were fetched freshly")
-        persist_data(builds, cache_filepath)
+        utils.write_pickle_file(builds, cache_filepath)
         return builds
 
     log.info("loaded %s builds from disk", len(builds_cached))
@@ -305,19 +323,11 @@ def load_all_builds(orgslug, pipelineslug, states):
         only_newer_than_build_number=newest_build_in_cache["number"],
     )
 
-    builds = builds_cached
-    builds.extend(new_builds)
-    persist_data(builds, cache_filepath)
-    # for i, b in enumerate(builds):
-    #     if b["number"] == 2178:
-    #         print(json.dumps(b, indent=2))
-    #     if not isinstance(b["number"], int):
-    #         print(type(b["number"]))
-    #     if i % 10 == 0:
-    #         print(b["number"])
-
     log.info(
         "persist to disk (pickle cache): combination of previous cache and newly fetched builds"
     )
-    persist_data(builds, cache_filepath)
+    builds = builds_cached
+    builds.extend(new_builds)
+    utils.write_pickle_file(builds, cache_filepath)
+
     return builds

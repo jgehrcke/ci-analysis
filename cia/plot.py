@@ -21,6 +21,15 @@
 # SOFTWARE.
 
 import logging
+import os
+import re
+
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
+from .cfg import CFG, TODAY, FIGURE_FILE_PATHS
+
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +63,7 @@ def plot_duration(
     )
     plt.tight_layout()
     figure_filepath_latency_raw_linscale = savefig(
-        f"{CLIARGS.org} {CLIARGS.pipeline} {title} {metricname} linear {descr_suffix}"
+        f"{CFG().args.org} {CFG().args.pipeline} {title} {metricname} linear {descr_suffix}"
     )
 
     plt.figure()
@@ -92,7 +101,7 @@ def plot_duration(
     plt.tight_layout()
     # plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     figure_filepath_latency_raw_logscale = savefig(
-        f"{CLIARGS.org} {CLIARGS.pipeline} {title} {metricname} logscale {descr_suffix}"
+        f"{CFG().args.org} {CFG().args.pipeline} {title} {metricname} logscale {descr_suffix}"
     )
 
     # Create new mpl figure for next call to `plot_duration()`
@@ -194,7 +203,6 @@ def _plot_duration_core(
 
 def savefig(title):
     """
-    Save figure file to `OUTDIR`.
     Expected to return just the base name (not the complete path).
     """
     # Lowercase, replace special chars with whitespace, join on whitespace.
@@ -202,7 +210,7 @@ def savefig(title):
 
     fname = TODAY + "_" + cleantitle
 
-    fpath_figure = os.path.join(OUTDIR, fname + ".png")
+    fpath_figure = os.path.join(CFG().args.output_directory, fname + ".png")
     log.info("Writing PNG figure to %s", fpath_figure)
     plt.savefig(fpath_figure, dpi=150)
     return os.path.basename(fpath_figure)

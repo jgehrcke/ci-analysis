@@ -28,36 +28,17 @@ Performs analysis on CI build information
 
 __version__ = "0.0.0"
 
-import argparse
-import os
-import json
+
 import logging
-import pickle
-import sys
 import re
-import shutil
-import textwrap
 import time
+import sys
 from datetime import datetime
-from collections import Counter, defaultdict
-from io import StringIO
 
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import pandas as pd
-import pytablewriter
-
-from pybuildkite.buildkite import Buildkite, BuildState
 
 import cia.buildkite as bk
-
-NOW = datetime.utcnow()
-TODAY = NOW.strftime("%Y-%m-%d")
-OUTDIR = None
-FIGURE_FILE_PATHS = {}
-
-CLIARGS = None
+import cia.cfg as cfg
 
 
 log = logging.getLogger()
@@ -69,59 +50,7 @@ logging.basicConfig(
 
 
 def main():
-    parse_args()
+    args = cfg.parse_args()
 
-    builds_raw = bk.load_all_builds(
-        CLIARGS.org, CLIARGS.pipeline, [BuildState.FINISHED]
-    )
-    builds = bk.rewrite_build_objects(builds_raw)
-    builds = bk.filter_builds_based_on_duration(builds)
-
-    analyze_passed_builds(filter_builds_passed(builds))
-
-
-def parse_args():
-    global CLIARGS
-    global OUTDIR
-
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Performs Buildkite CI data analysis",
-        epilog=textwrap.dedent(__doc__).strip(),
-    )
-    parser.add_argument("--output-directory", default=TODAY + "_report")
-    # parser.add_argument("--resources-directory", default="resources")
-    # parser.add_argument("--pandoc-command", default="pandoc")
-
-    parser.add_argument("org", help="The org's slug (simplified lowercase name)")
-    parser.add_argument(
-        "pipeline", help="The pipeline's slug (simplified lowercase name)"
-    )
-    parser.add_argument(
-        "--ignore-builds-shorter-than", type=int, help="Number in seconds"
-    )
-
-    parser.add_argument(
-        "--ignore-builds-longer-than", type=int, help="Number in seconds"
-    )
-
-    args = parser.parse_args()
-
-    log.info("command line args: %s", json.dumps(vars(args), indent=2))
-
-    if os.path.exists(args.output_directory):
-        if not os.path.isdir(args.output_directory):
-            log.error(
-                "The specified output directory path does not point to a directory: %s",
-                args.output_directory,
-            )
-            sys.exit(1)
-
-        log.info("Remove output directory: %s", args.output_directory)
-        shutil.rmtree(args.output_directory)
-
-    log.info("Create output directory: %s", args.output_directory)
-    os.makedirs(args.output_directory)
-
-    CLIARGS = args
-    OUTDIR = args.output_directory
+    if args.command == "bk":
+        bk.main()

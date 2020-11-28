@@ -23,6 +23,8 @@
 
 import logging
 
+from .cfg import CFG
+
 log = logging.getLogger(__name__)
 
 
@@ -30,24 +32,24 @@ def filter_builds_based_on_duration(builds):
 
     builds_kept = builds
 
-    if CLIARGS.ignore_builds_shorter_than:
+    if CFG().args.ignore_builds_shorter_than:
 
         log.info("filter builds: ignore_builds_shorter_than")
         builds_kept = [
             b
             for b in builds
-            if b["duration_seconds"] >= CLIARGS.ignore_builds_shorter_than
+            if b["duration_seconds"] >= CFG().args.ignore_builds_shorter_than
         ]
         log.info("survived filter: %s", len(builds_kept))
         log.info("dropped by filter: %s", len(builds) - len(builds_kept))
 
-    if CLIARGS.ignore_builds_longer_than:
+    if CFG().args.ignore_builds_longer_than:
         builds = builds_kept
         log.info("filter builds: ignore_builds_longer_than")
         builds_kept = [
             b
             for b in builds
-            if b["duration_seconds"] <= CLIARGS.ignore_builds_longer_than
+            if b["duration_seconds"] <= CFG().args.ignore_builds_longer_than
         ]
         log.info("survived filter: %s", len(builds_kept))
         log.info("dropped by filter: %s", len(builds) - len(builds_kept))
@@ -56,7 +58,7 @@ def filter_builds_based_on_duration(builds):
 
 
 def filter_builds_passed(builds):
-    log.info("filter builds: passed")
+    log.info("filter builds: passed (keep)")
     builds_kept = [b for b in builds if b["state"] == "passed"]
     log.info("survived filter: %s", len(builds_kept))
     log.info("dropped by filter: %s", len(builds) - len(builds_kept))

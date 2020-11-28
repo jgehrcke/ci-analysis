@@ -20,31 +20,36 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import os
 import logging
+import pickle
+from io import StringIO
+
+import pytablewriter
 
 log = logging.getLogger(__name__)
 
 
-def load_file_if_exists(filepath):
+def load_pickle_file_if_exists(path):
     # Load from disk if already fetched today, otherwise return `None`.
-    if os.path.exists(filepath):
-        log.info("loading data from file: %s", filepath)
-        with open(filepath, "rb") as f:
+    if os.path.exists(path):
+        log.info("loading data from file: %s", path)
+        with open(path, "rb") as f:
             data = f.read()
         log.info("read %.2f MiB", len(data) / 1024.0 / 1024.0)
         return pickle.loads(data)
     return None
 
 
-def persist_data(obj, filepath):
+def write_pickle_file(obj, path):
     data = pickle.dumps(obj)
     log.info(
         "persist %s byte(s) (%.2f MiB) to file %s",
         len(data),
         len(data) / 1024.0 / 1024.0,
-        filepath,
+        path,
     )
-    with open(filepath, "wb") as f:
+    with open(path, "wb") as f:
         f.write(data)
 
 
