@@ -60,11 +60,14 @@ logging.basicConfig(
 def main():
     parse_args()
 
-    builds = load_all_builds(CLIARGS.org, CLIARGS.pipeline, [BuildState.FINISHED])
-    builds = rewrite_build_objects(builds)
+    builds_raw = load_all_builds(CLIARGS.org, CLIARGS.pipeline, [BuildState.FINISHED])
+    builds = rewrite_build_objects(builds_raw)
+    builds = filter_builds_based_on_duration(builds)
 
-    # From here on, `builds` are only PASSED builds.
-    builds = filter_builds(builds)
+    analyze_passed_builds(filter_builds_passed(builds))
+
+
+def analyze_passed_builds(builds):
 
     log.info("identify the set of step keys observed across builds")
     step_key_counter, jobs_by_key = identify_top_n_step_keys(builds, 7)
@@ -201,15 +204,12 @@ def rewrite_build_objects(builds):
     return builds
 
 
-def filter_builds(builds):
+def filter_builds_based_on_duration(builds):
 
-    log.info("filter builds: passed")
-    builds_kept = [b for b in builds if b["state"] == "passed"]
-    log.info("survived filter: %s", len(builds_kept))
-    log.info("dropped by filter: %s", len(builds) - len(builds_kept))
+    builds_kept = builds
 
     if CLIARGS.ignore_builds_shorter_than:
-        builds = builds_kept
+
         log.info("filter builds: ignore_builds_shorter_than")
         builds_kept = [
             b
@@ -230,8 +230,15 @@ def filter_builds(builds):
         log.info("survived filter: %s", len(builds_kept))
         log.info("dropped by filter: %s", len(builds) - len(builds_kept))
 
-    builds = builds_kept
-    return builds
+    return builds_kept
+
+
+def filter_builds_passed(builds):
+    log.info("filter builds: passed")
+    builds_kept = [b for b in builds if b["state"] == "passed"]
+    log.info("survived filter: %s", len(builds_kept))
+    log.info("dropped by filter: %s", len(builds) - len(builds_kept))
+    return builds_kept
 
 
 def identify_top_n_step_keys(builds, top_n):
