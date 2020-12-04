@@ -22,10 +22,29 @@
 
 
 import logging
+from datetime import datetime, timezone
 
 from .cfg import CFG
 
 log = logging.getLogger(__name__)
+
+
+def filter_builds_based_on_build_time(builds):
+    builds_kept = builds
+
+    if CFG().args.ignore_builds_before:
+        # tz-naive
+        earliest_date = datetime.strptime(CFG().args.ignore_builds_before, "%Y-%m-%d")
+        # turn into tz-aware, otherwise can't compare offset-naive and
+        # offset-aware datetimes.
+        earliest_date = earliest_date.replace(tzinfo=timezone.utc)
+
+        log.info("filter builds: ignore_builds_before: %s", earliest_date)
+        builds_kept = [b for b in builds if b["finished_at"] >= earliest_date]
+        log.info("survived filter: %s", len(builds_kept))
+        log.info("dropped by filter: %s", len(builds) - len(builds_kept))
+
+    return builds_kept
 
 
 def filter_builds_based_on_duration(builds):

@@ -56,6 +56,9 @@ def main():
         load_all_builds(CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED])
     )
 
+    # Store this under "all", although these are technically already filtered
+    builds_all = bfilter.filter_builds_based_on_build_time(builds_all)
+
     set_common_x_limit_for_plotting(builds_all)
 
     plot.matplotlib_config()
