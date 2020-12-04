@@ -45,6 +45,26 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
     # size for each unique index value).
     eventcountseries = series.groupby(series.index).size()
 
+    log.info("event count series (1 s resolution, gaps):")
+    print(eventcountseries)
+
+    n_minute_bins = 30
+    log.info("downsample series into %s-minute bins", n_minute_bins)
+    # Downsample the series into N-minute bins and sum the values falling into
+    # a bin (counting the number of 'events' in this bin).
+    eventcountseries = eventcountseries.resample(f"{n_minute_bins}min").sum()
+    print(eventcountseries)
+
+    # The 'resample' before is not expected to upsample, just downsample. That
+    # is, the resulting time index is expected to have gaps (where no events
+    # occur in a time interval larger than a second), Up-sample the time index
+    # to fill these gaps, with 1s resolution and fill the missing values with
+    # zeros. If desired.
+    if upsample:
+        log.info("upsample series (%s-minute bins) to fill gips, with 0", n_minute_bins)
+        eventcountseries = eventcountseries.asfreq("30T", fill_value=0)
+        print(eventcountseries)
+
     # Construct Window object using `df.rolling()` whereas a time offset string
     # defines the rolling window width in seconds. Require N samples to be in
     # the moving window otherwise produce NaN?

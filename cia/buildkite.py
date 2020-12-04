@@ -82,18 +82,17 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
 
     legendlist.append(f"rolling window mean ({window_width_days} days)")
 
+    rolling_build_rate_all = analysis.calc_rolling_event_rate(
+        df_all.index.to_series(), window_width_seconds=86400 * window_width_days
+    )
+
+    # Passed builds: upsample/fill gaps with 0, so that the following
+    # passed/all division shows stability '0' when build_rate_all is non-NaN
     rolling_build_rate_passed = analysis.calc_rolling_event_rate(
         df_passed.index.to_series(),
         window_width_seconds=86400 * window_width_days,
         upsample=True,
     )
-
-    rolling_build_rate_all = analysis.calc_rolling_event_rate(
-        df_all.index.to_series(), window_width_seconds=86400 * window_width_days
-    )
-
-    # passed builds: fill nan with 0, so that the following division shows
-    # stability '0' when build_rate_all is non-NaN
 
     rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
 
