@@ -34,9 +34,13 @@ from datetime import datetime
 import pandas as pd
 from pybuildkite.buildkite import Buildkite, BuildState
 
+import matplotlib
+import matplotlib.pyplot as plt
+
 import cia.plot as plot
 import cia.utils as utils
 import cia.filter as bfilter
+import cia.analysis as analysis
 from cia.cfg import CFG
 
 
@@ -52,115 +56,96 @@ def main():
     builds_all = rewrite_build_objects(
         load_all_builds(CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED])
     )
-    analyze_build_rate(builds_all)
+
+    plot.matplotlib_config()
+
+    builds_passed = bfilter.filter_builds_passed(
+        bfilter.filter_builds_based_on_duration(builds_all)
+    )
+
+    # analyze_passed_builds(builds_all)
+    # analyze_build_rate({"all builds": builds_all, "passed builds": builds_passed}, 7)
+    analyze_build_stability(builds_all, builds_passed, 28)
+    plt.show()
     sys.exit(0)
     analyze_passed_builds(builds_all)
 
 
-def analyze_build_rate(builds_all):
-    log.info("analyze build rate")
-    # Analysis and plots for entire pipeline, for passed builds.
-    df = construct_df_for_builds(builds_all)
-    # follow https://github.com/jgehrcke/bouncer-log-analysis/blob/master/bouncer-log-analysis.py#L514
-    # use rw of fixed (time) width (expose via cli arg) and set min number of
-    # samples (expose via cli arg).
-    import matplotlib
-    import matplotlib.pyplot as plt
-
-    window_width_days = 3
-
-    rolling_build_rate = calc_rolling_event_rate(
-        df.index.to_series(), window_width_seconds=86400 * window_width_days
-    )
+def analyze_build_stability(builds_all, builds_passed, window_width_days):
     plt.figure()
+    legendlist = []
 
-    print(rolling_build_rate)
+    # log.info("analyze build rate: %s", descr)
+    # Analysis and plots for entire pipeline, for passed builds.
+    df_all = construct_df_for_builds(builds_all)
+    df_passed = construct_df_for_builds(builds_passed)
 
-    log.info("Plot build rate: window width (days): %s", window_width_days)
-    ax = rolling_build_rate.plot(
-        linestyle="dashdot",
+    legendlist.append(f"rolling window mean ({window_width_days} days)")
+
+    rolling_build_rate_passed = analysis.calc_rolling_event_rate(
+        df_passed.index.to_series(),
+        window_width_seconds=86400 * window_width_days,
+        upsample=True,
+    )
+
+    rolling_build_rate_all = analysis.calc_rolling_event_rate(
+        df_all.index.to_series(), window_width_seconds=86400 * window_width_days
+    )
+
+    # passed builds: fill nan with 0, so that the following division shows
+    # stability '0' when build_rate_all is non-NaN
+
+    rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
+
+    # log.info("Plot build rate: window width (days): %s", window_width_days)
+    ax = rolling_window_stability.plot(
+        linestyle="solid",  # dot",
         # linestyle='None',
-        marker=".",
+        # marker=".",
         markersize=0.8,
         markeredgecolor="gray",
     )
 
-    ax.set_xlabel("Time")
-    ax.set_ylabel(f"Rolling window (days: {window_width_days}) mean build rate [1/day]")
+    ylabel = "build stability"
+    ax.set_xlabel("build start time", fontsize=10)
+    ax.set_ylabel(ylabel, fontsize=10)
+    ax.legend(legendlist, numpoints=4, fontsize=8)
+    plt.ylim(0, 1)
     plt.tight_layout(rect=(0, 0, 1, 0.95))
-    plt.show()
 
 
-def calc_rolling_event_rate(series, window_width_seconds):
-    """
-    Require that Series index is a timestamp index.
-    http://pandas.pydata.org/pandas-docs/version/0.19.2/api.html#window
-    """
-    assert isinstance(window_width_seconds, int)
-    log.info(
-        "Calculate event rate over rolling window (width: %s s)", window_width_seconds
-    )
+def analyze_build_rate(builds_map, window_width_days):
+    plt.figure()
+    legendlist = []
 
-    # Each sample/item in the series corresponds to one event. The index value
-    # is the datetime of the event (build), with a resolution of 1 second.
-    # Multiple events per second are rare, but to be expected. Get the number
-    # of events for any given second (group by index value, and get the group
-    # size for each unique index value).
-    eventcountseries = series.groupby(series.index).size()
+    for descr, builds in builds_map.items():
+        log.info("analyze build rate: %s", descr)
+        # Analysis and plots for entire pipeline, for passed builds.
+        df = construct_df_for_builds(builds)
+        # follow https://github.com/jgehrcke/bouncer-log-analysis/blob/master/bouncer-log-analysis.py#L514
+        # use rw of fixed (time) width (expose via cli arg) and set min number of
+        # samples (expose via cli arg).
 
-    # The resulting time index is expected to have gaps (where no events occur
-    # in a time interval larger than a second), Up-sample the time index to
-    # fill these gaps, with 1s resolution and fill the missing values with
-    # zeros.
-    # eventcountseries = e.asfreq('1S', fill_value=0)
+        legendlist.append(f"{descr}, rolling window mean ({window_width_days} days)")
 
-    # Construct Window object using `df.rolling()` whereas a time offset string
-    # defines the rolling window width in seconds. Require N samples to be in
-    # the moving window otherwise produce NaN?
-    window = eventcountseries.rolling(
-        window="%sS" % window_width_seconds, min_periods=10
-    )
+        rolling_build_rate = analysis.calc_rolling_event_rate(
+            df.index.to_series(), window_width_seconds=86400 * window_width_days
+        )
 
-    # Count the number of events (builds) within the rolling window.
-    s = window.sum()
+        log.info("Plot build rate: window width (days): %s", window_width_days)
+        ax = rolling_build_rate.plot(
+            linestyle="solid",  # dot",
+            # linestyle='None',
+            # marker=".",
+            markersize=0.8,
+            markeredgecolor="gray",
+        )
 
-    # Normalize event count with/by the window width, yielding the average
-    # build rate [Hz] in that time window.
-    # rolling_build_rate = s / float(window_width_seconds)
-    rolling_build_rate_d = 86400 * s / float(window_width_seconds)
-
-    new_rate_column_name = "builds_per_day_%ss_window" % window_width_seconds
-    rolling_build_rate_d.rename(new_rate_column_name, inplace=True)
-
-    # In the resulting Series object, the request rate value is assigned to the
-    # right window boundary index value (i.e. to the newest timestamp in the
-    # window). For presentation it is more convenient to have it assigned
-    # (approximately) to the temporal center of the time window. That makes
-    # sense for intuitive data interpretation of a single rolling window time
-    # series, but is essential for meaningful presentation of multiple rolling
-    # window series in the same plot (when their window width varies). Invoking
-    # `rolling(..., center=True)` however yields `NotImplementedError: center
-    # is not implemented for datetimelike and offset based windows`. As a
-    # workaround, shift the data by half the window size to 'the left': shift
-    # the timestamp index by a constant / offset.
-    offset = pd.DateOffset(seconds=window_width_seconds / 2.0)
-    rolling_build_rate_d.index = rolling_build_rate_d.index - offset
-
-    # In the resulting time series, all leftmost values up to the rolling
-    # window width are dominated by the effect that the rolling window
-    # (incoming from the left) does not yet completely overlap with the data.
-    # That is, here the rolling window result is (linearly increasing)
-    # systematically to small. Because by now the time series has one sample
-    # per second, the number of leftmost samples with a bad result corresponds
-    # to the window width in seconds. Return just the slice
-    # `[window_width_seconds:]`. TODO: also strip off the right bit -- or
-    # forward-fill to "now"
-    # Note(JP): this is broken -- need to think through, and fix.
-    # probably as of the non-regular index.
-    # rolling_build_rate_d = rolling_build_rate_d[window_width_seconds:]
-    # print(rolling_build_rate_d)
-
-    return rolling_build_rate_d
+    ylabel = "build rate [1/d]"
+    ax.set_xlabel("build start time", fontsize=10)
+    ax.set_ylabel(ylabel, fontsize=10)
+    ax.legend(legendlist, numpoints=4, fontsize=8)
+    plt.tight_layout(rect=(0, 0, 1, 0.95))
 
 
 def analyze_passed_builds(builds_all):
