@@ -3,3 +3,11 @@ ci-analysis bk org pipeline
 
 ci-analysis gh repo
 
+Build stability analysis with basic statistics:
+
+Go to a percent scale and do a "proper" (well, basic) statistical analysis,
+including the actual build rate. That is, say, 8 out of 10 builds passed. Then
+show a data point at 80 %. But also show an error bar (or an error band) that
+shows the statistical uncertainty: given 10 attempts and a derived mean -- what
+is the standard error of the mean?
+
