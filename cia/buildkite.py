@@ -34,7 +34,6 @@ from datetime import datetime
 import pandas as pd
 from pybuildkite.buildkite import Buildkite, BuildState
 
-import matplotlib
 import matplotlib.pyplot as plt
 
 import cia.plot as plot
@@ -53,6 +52,8 @@ BK_CLIENT.set_access_token(os.environ["BUILDKITE_API_TOKEN"])
 
 def main():
 
+    pipelinestr = f"{CFG().args.org}/{CFG().args.pipeline}"
+
     builds_all = rewrite_build_objects(
         load_all_builds(CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED])
     )
@@ -64,23 +65,22 @@ def main():
     )
 
     # analyze_passed_builds(builds_all)
-    analyze_build_rate({"all builds": builds_all, "passed builds": builds_passed}, 7)
-    analyze_build_stability(builds_all, builds_passed, 7)
+    # analyze_build_rate({"all builds": builds_all, "passed builds": builds_passed}, 7)
+    analyze_build_stability(builds_all, builds_passed, 7, descr=pipelinestr)
+
     plt.show()
     sys.exit(0)
     analyze_passed_builds(builds_all)
 
 
-def analyze_build_stability(builds_all, builds_passed, window_width_days):
-    plt.figure()
-    legendlist = []
+def analyze_build_stability(builds_all, builds_passed, window_width_days, descr):
+    log.info(
+        "perform build stability analysis (from all builds, passed builds) -- window_width_days: %s",
+        window_width_days,
+    )
 
-    # log.info("analyze build rate: %s", descr)
-    # Analysis and plots for entire pipeline, for passed builds.
     df_all = construct_df_for_builds(builds_all)
     df_passed = construct_df_for_builds(builds_passed)
-
-    legendlist.append(f"rolling window mean ({window_width_days} days)")
 
     rolling_build_rate_all = analysis.calc_rolling_event_rate(
         df_all.index.to_series(), window_width_seconds=86400 * window_width_days
@@ -93,27 +93,8 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
         window_width_seconds=86400 * window_width_days,
         upsample=True,
     )
-
     rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
-
-    log.info("Plot build stability: window width (days): %s", window_width_days)
-    ax = rolling_window_stability.plot(
-        linestyle="solid",  # dot",
-        # linestyle='None',
-        # marker=".",
-        markersize=0.8,
-        markeredgecolor="gray",
-    )
-
-    ylabel = "build stability"
-
-    # This is the build start time, but that has negligible impact on the
-    # visualization.
-    ax.set_xlabel("build time", fontsize=10)
-    ax.set_ylabel(ylabel, fontsize=10)
-    ax.legend(legendlist, numpoints=4, fontsize=8)
-    plt.ylim(0, 1.5)
-    plt.tight_layout(rect=(0, 0, 1, 0.95))
+    plot.plot_build_stability(rolling_window_stability, window_width_days, descr)
 
 
 def analyze_build_rate(builds_map, window_width_days):

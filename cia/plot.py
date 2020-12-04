@@ -34,6 +34,34 @@ from .cfg import CFG, TODAY, FIGURE_FILE_PATHS
 log = logging.getLogger(__name__)
 
 
+def plot_build_stability(rolling_window_stability, window_width_days, descr):
+    log.info("Plot build stability: window width (days): %s", window_width_days)
+
+    plt.figure()
+    legendlist = []
+
+    ax = rolling_window_stability.plot(
+        linestyle="solid",  # dot",
+        # linestyle='None',
+        # marker=".",
+        markersize=0.8,
+        markeredgecolor="gray",
+    )
+    legendlist.append(f"rolling window mean ({window_width_days} days)")
+
+    ylabel = "build stability (max: 1)"
+
+    # This is the build start time, but that has negligible impact on the
+    # visualization.
+    ax.set_xlabel("build time", fontsize=10)
+    ax.set_ylabel(ylabel, fontsize=10)
+    ax.legend(legendlist, numpoints=4, fontsize=8, loc="upper left")
+    # text coords: x, y
+    plt.text(0.01, 0.04, descr, fontsize=8, transform=ax.transAxes, color="#666666")
+    plt.ylim(0, 1.15)
+    plt.tight_layout(rect=(0, 0, 1, 0.95))
+
+
 def plot_duration(
     df,
     metricname,
