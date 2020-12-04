@@ -209,6 +209,11 @@ def analyze_passed_builds(builds_all):
 def construct_df_for_jobs(jobs):
 
     log.info("build pandas dataframe for passed jobs")
+
+    # Drop those jobs that do not have an numeric duration (applies to jobs)
+    # that never started.
+    jobs = [j for j in jobs if j["duration_seconds"] is not None]
+
     df_dict = {
         "started_at": [j["started_at"] for j in jobs],
         "build_number": [j["build_number"] for j in jobs],
@@ -220,6 +225,7 @@ def construct_df_for_jobs(jobs):
     # Sort by time, from past to future.
     log.info("df: sort by time")
     df.sort_index(inplace=True)
+    # df.index._validate_monotonic()
     return df
 
 
