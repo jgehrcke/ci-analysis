@@ -52,8 +52,6 @@ BK_CLIENT.set_access_token(os.environ["BUILDKITE_API_TOKEN"])
 
 def main():
 
-    pipelinestr = f"{CFG().args.org}/{CFG().args.pipeline}"
-
     builds_all = rewrite_build_objects(
         load_all_builds(CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED])
     )
@@ -64,16 +62,25 @@ def main():
         bfilter.filter_builds_based_on_duration(builds_all)
     )
 
-    # analyze_passed_builds(builds_all)
-    # analyze_build_rate({"all builds": builds_all, "passed builds": builds_passed}, 7)
-    analyze_build_stability(builds_all, builds_passed, 7, descr=pipelinestr)
+    analyze_passed_builds(builds_all)
+    plt.show()
+    sys.exit(0)
+    plot.plot_build_rate(
+        {
+            "all builds": construct_df_for_builds(builds_all),
+            "passed builds": construct_df_for_builds(builds_passed),
+        },
+        window_width_days=7,
+        context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
+    )
+    analyze_build_stability(builds_all, builds_passed, window_width_days=7)
 
     plt.show()
     sys.exit(0)
     analyze_passed_builds(builds_all)
 
 
-def analyze_build_stability(builds_all, builds_passed, window_width_days, descr):
+def analyze_build_stability(builds_all, builds_passed, window_width_days):
     log.info(
         "perform build stability analysis (from all builds, passed builds) -- window_width_days: %s",
         window_width_days,
@@ -94,43 +101,11 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days, descr)
         upsample=True,
     )
     rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
-    plot.plot_build_stability(rolling_window_stability, window_width_days, descr)
-
-
-def analyze_build_rate(builds_map, window_width_days):
-    plt.figure()
-    legendlist = []
-
-    for descr, builds in builds_map.items():
-        log.info("analyze build rate: %s", descr)
-        # Analysis and plots for entire pipeline, for passed builds.
-        df = construct_df_for_builds(builds)
-        # follow https://github.com/jgehrcke/bouncer-log-analysis/blob/master/bouncer-log-analysis.py#L514
-        # use rw of fixed (time) width (expose via cli arg) and set min number of
-        # samples (expose via cli arg).
-
-        legendlist.append(f"{descr}, rolling window mean ({window_width_days} days)")
-
-        rolling_build_rate = analysis.calc_rolling_event_rate(
-            df.index.to_series(), window_width_seconds=86400 * window_width_days
-        )
-
-        log.info("Plot build rate: window width (days): %s", window_width_days)
-        ax = rolling_build_rate.plot(
-            linestyle="solid",  # dot",
-            # linestyle='None',
-            # marker=".",
-            markersize=0.8,
-            markeredgecolor="gray",
-        )
-
-    ylabel = "build rate [1/d]"
-    # This is the build start time, but that has negligible impact on the
-    # visualization.
-    ax.set_xlabel("build time", fontsize=10)
-    ax.set_ylabel(ylabel, fontsize=10)
-    ax.legend(legendlist, numpoints=4, fontsize=8)
-    plt.tight_layout(rect=(0, 0, 1, 0.95))
+    plot.plot_build_stability(
+        rolling_window_stability,
+        window_width_days,
+        context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
+    )
 
 
 def analyze_passed_builds(builds_all):
@@ -148,6 +123,7 @@ def analyze_passed_builds(builds_all):
 
     plot.plot_duration(
         df,
+        context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
         metricname="duration_seconds",
         rollingwindow_w_days=10,
         ylabel="pipeline duration (hours)",
@@ -167,6 +143,7 @@ def analyze_passed_builds(builds_all):
         print(df_job)
         plot.plot_duration(
             df_job,
+            context_descr=f"{CFG().args.org}/{CFG().args.pipeline}/{step_key}",
             metricname="duration_seconds",
             rollingwindow_w_days=10,
             ylabel="job duration (hours)",

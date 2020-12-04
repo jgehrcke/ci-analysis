@@ -31,10 +31,12 @@ import matplotlib.ticker as ticker
 from .cfg import CFG, TODAY, FIGURE_FILE_PATHS
 
 
+import cia.analysis as analysis
+
 log = logging.getLogger(__name__)
 
 
-def plot_build_stability(rolling_window_stability, window_width_days, descr):
+def plot_build_stability(rolling_window_stability, window_width_days, context_descr):
     log.info("Plot build stability: window width (days): %s", window_width_days)
 
     plt.figure()
@@ -57,14 +59,56 @@ def plot_build_stability(rolling_window_stability, window_width_days, descr):
     ax.set_ylabel(ylabel, fontsize=10)
     ax.legend(legendlist, numpoints=4, fontsize=8, loc="upper left")
     # text coords: x, y
-    plt.text(0.01, 0.04, descr, fontsize=8, transform=ax.transAxes, color="#666666")
+    plt.text(
+        0.01, 0.04, context_descr, fontsize=8, transform=ax.transAxes, color="#666666"
+    )
     plt.ylim(0, 1.15)
+    plt.tight_layout(rect=(0, 0, 1, 0.95))
+
+
+def plot_build_rate(builds_map, window_width_days, context_descr):
+
+    plt.figure()
+    legendlist = []
+
+    for descr, df in builds_map.items():
+        log.info("analyze build rate: %s", descr)
+        # Analysis and plots for entire pipeline, for passed builds.
+        # follow https://github.com/jgehrcke/bouncer-log-analysis/blob/master/bouncer-log-analysis.py#L514
+        # use rw of fixed (time) width (expose via cli arg) and set min number of
+        # samples (expose via cli arg).
+        legendlist.append(f"{descr}, rolling window mean ({window_width_days} days)")
+
+        rolling_build_rate = analysis.calc_rolling_event_rate(
+            df.index.to_series(), window_width_seconds=86400 * window_width_days
+        )
+
+        log.info("Plot build rate: window width (days): %s", window_width_days)
+        ax = rolling_build_rate.plot(
+            linestyle="solid",  # dot",
+            # linestyle='None',
+            # marker=".",
+            markersize=0.8,
+            markeredgecolor="gray",
+        )
+
+    ylabel = "build rate [1/d]"
+    # This is the build start time, but that has negligible impact on the
+    # visualization.
+    ax.set_xlabel("build time", fontsize=10)
+    ax.set_ylabel(ylabel, fontsize=10)
+    ax.legend(legendlist, numpoints=4, fontsize=8)
+    # text coords: x, y
+    plt.text(
+        0.01, 0.04, context_descr, fontsize=8, transform=ax.transAxes, color="#666666"
+    )
     plt.tight_layout(rect=(0, 0, 1, 0.95))
 
 
 def plot_duration(
     df,
     metricname,
+    context_descr,
     show_mean=True,
     show_median=True,
     show_raw=True,
@@ -76,7 +120,10 @@ def plot_duration(
     figid=None,
     convert_to_hours=False,
     yticks=None,
+    ylog=False,
 ):
+
+    plt.figure()
 
     median, ax = _plot_duration_core(
         df=df,
@@ -88,52 +135,55 @@ def plot_duration(
         show_median=show_median,
         show_raw=show_raw,
         convert_to_hours=convert_to_hours,
+        context_descr=context_descr,
     )
     plt.tight_layout()
     figure_filepath_latency_raw_linscale = savefig(
-        f"{CFG().args.org} {CFG().args.pipeline} {title} {metricname} linear {descr_suffix}"
+        f"{context_descr} {title} {metricname} linear {descr_suffix}"
     )
 
-    plt.figure()
+    figure_filepath_latency_raw_logscale = None
+    if ylog:
+        plt.figure()
 
-    median, ax = _plot_duration_core(
-        df=df,
-        metricname=metricname,
-        ylabel=ylabel,
-        xlabel=xlabel,
-        rollingwindow_w_days=rollingwindow_w_days,
-        show_mean=show_mean,
-        show_median=show_median,
-        show_raw=show_raw,
-        convert_to_hours=convert_to_hours,
-    )
+        median, ax = _plot_duration_core(
+            df=df,
+            context_descr=context_descr,
+            metricname=metricname,
+            ylabel=ylabel,
+            xlabel=xlabel,
+            rollingwindow_w_days=rollingwindow_w_days,
+            show_mean=show_mean,
+            show_median=show_median,
+            show_raw=show_raw,
+            convert_to_hours=convert_to_hours,
+        )
 
-    plt.yscale("log")
+        plt.yscale("log")
 
-    # Set ytick labels using 0.01, 0.1, 1, 10, 100, instead of 10^0 etc.
-    # Creds:
-    #  https://stackoverflow.com/q/21920233/145400
-    #  https://stackoverflow.com/q/14530113/145400
-    if yticks is not None:
-        # ax.set_yticks([0.001, 0.01, 0.1, 0.5, 1, 3, 10])
-        ax.set_yticks(yticks)
-    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: "{:g}".format(y)))
+        # Set ytick labels using 0.01, 0.1, 1, 10, 100, instead of 10^0 etc.
+        # Creds:
+        #  https://stackoverflow.com/q/21920233/145400
+        #  https://stackoverflow.com/q/14530113/145400
+        if yticks is not None:
+            # ax.set_yticks([0.001, 0.01, 0.1, 0.5, 1, 3, 10])
+            ax.set_yticks(yticks)
+        ax.yaxis.set_major_formatter(
+            ticker.FuncFormatter(lambda y, _: "{:g}".format(y))
+        )
 
-    # https://github.com/pandas-dev/pandas/issues/2010
-    ax.set_xlim(ax.get_xlim()[0] - 1, ax.get_xlim()[1] + 1)
+        # https://github.com/pandas-dev/pandas/issues/2010
+        ax.set_xlim(ax.get_xlim()[0] - 1, ax.get_xlim()[1] + 1)
 
-    # The tight_layout magic does not get rid of the outer margin. Fortunately,
-    # numbers smaller than 0 and larger than 1 for left, bottom, right, top are
-    # allowed.
-    # plt.tight_layout(rect=(-0.01, -0.05, 1.0, 1.0))
-    plt.tight_layout()
-    # plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-    figure_filepath_latency_raw_logscale = savefig(
-        f"{CFG().args.org} {CFG().args.pipeline} {title} {metricname} logscale {descr_suffix}"
-    )
-
-    # Create new mpl figure for next call to `plot_duration()`
-    plt.figure()
+        # The tight_layout magic does not get rid of the outer margin. Fortunately,
+        # numbers smaller than 0 and larger than 1 for left, bottom, right, top are
+        # allowed.
+        # plt.tight_layout(rect=(-0.01, -0.05, 1.0, 1.0))
+        plt.tight_layout()
+        # plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+        figure_filepath_latency_raw_logscale = savefig(
+            f"{context_descr} {title} {metricname} logscale {descr_suffix}"
+        )
 
     # Keep record of these figure files in a global state dictionary.
     if figid is not None:
@@ -153,6 +203,7 @@ def _plot_duration_core(
     ylabel,
     xlabel,
     rollingwindow_w_days,
+    context_descr,
     convert_to_hours=False,
     show_mean=True,
     show_median=True,
@@ -216,7 +267,10 @@ def _plot_duration_core(
         plt.xlabel("build start time", fontsize=10)
 
     plt.ylabel(ylabel, fontsize=10)
-
+    # text coords: x, y
+    plt.text(
+        0.01, 0.04, context_descr, fontsize=8, transform=ax.transAxes, color="#666666"
+    )
     # plt.xticks(fontsize=14,
 
     # set_title('Time-to-merge for PRs in both DC/OS repositories')
