@@ -36,6 +36,16 @@ import cia.analysis as analysis
 log = logging.getLogger(__name__)
 
 
+_GLOBAL_X_LIMIT = None
+
+
+def set_x_limit_for_all_plots(lower, upper):
+    global _GLOBAL_X_LIMIT
+
+    log.info("set common x limits for plots: %s, %s", lower, upper)
+    _GLOBAL_X_LIMIT = (lower, upper)
+
+
 def plot_build_stability(rolling_window_stability, window_width_days, context_descr):
     log.info("Plot build stability: window width (days): %s", window_width_days)
 
@@ -97,6 +107,11 @@ def plot_build_rate(builds_map, window_width_days, context_descr):
     # visualization.
     ax.set_xlabel("build time", fontsize=10)
     ax.set_ylabel(ylabel, fontsize=10)
+
+    if _GLOBAL_X_LIMIT:
+        log.info("plot: set global xlim: %s", _GLOBAL_X_LIMIT)
+        ax.set_xlim(_GLOBAL_X_LIMIT)
+
     ax.legend(legendlist, numpoints=4, fontsize=8)
     # text coords: x, y
     plt.text(
@@ -137,6 +152,11 @@ def plot_duration(
         convert_to_hours=convert_to_hours,
         context_descr=context_descr,
     )
+
+    if _GLOBAL_X_LIMIT is not None:
+        log.info("_plot_duration_core: set global xlim: %s", _GLOBAL_X_LIMIT)
+        plt.xlim(_GLOBAL_X_LIMIT)
+
     plt.tight_layout()
     figure_filepath_latency_raw_linscale = savefig(
         f"{context_descr} {title} {metricname} linear {descr_suffix}"
@@ -171,6 +191,11 @@ def plot_duration(
         ax.yaxis.set_major_formatter(
             ticker.FuncFormatter(lambda y, _: "{:g}".format(y))
         )
+
+        if _GLOBAL_X_LIMIT is not None:
+            # untested for log plot
+            log.info("plot: set global xlim: %s", _GLOBAL_X_LIMIT)
+            ax.set_xlim(_GLOBAL_X_LIMIT)
 
         # https://github.com/pandas-dev/pandas/issues/2010
         ax.set_xlim(ax.get_xlim()[0] - 1, ax.get_xlim()[1] + 1)
@@ -267,6 +292,7 @@ def _plot_duration_core(
         plt.xlabel("build start time", fontsize=10)
 
     plt.ylabel(ylabel, fontsize=10)
+
     # text coords: x, y
     plt.text(
         0.01, 0.04, context_descr, fontsize=8, transform=ax.transAxes, color="#666666"
