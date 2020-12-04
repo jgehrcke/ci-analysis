@@ -26,6 +26,7 @@ Buildkite-specific dingeling.
 
 import os
 import logging
+import sys
 import time
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -33,9 +34,12 @@ from datetime import datetime
 import pandas as pd
 from pybuildkite.buildkite import Buildkite, BuildState
 
+import matplotlib.pyplot as plt
+
 import cia.plot as plot
 import cia.utils as utils
 import cia.filter as bfilter
+import cia.analysis as analysis
 from cia.cfg import CFG
 
 
@@ -47,28 +51,79 @@ BK_CLIENT.set_access_token(os.environ["BUILDKITE_API_TOKEN"])
 
 
 def main():
-    builds_raw = load_all_builds(
-        CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED]
+
+    builds_all = rewrite_build_objects(
+        load_all_builds(CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED])
     )
-    builds = rewrite_build_objects(builds_raw)
-    builds = bfilter.filter_builds_based_on_duration(builds)
-    analyze_passed_builds(bfilter.filter_builds_passed(builds))
+
+    plot.matplotlib_config()
+
+    builds_passed = bfilter.filter_builds_passed(
+        bfilter.filter_builds_based_on_duration(builds_all)
+    )
+
+    analyze_passed_builds(builds_all)
+    plt.show()
+    sys.exit(0)
+    plot.plot_build_rate(
+        {
+            "all builds": construct_df_for_builds(builds_all),
+            "passed builds": construct_df_for_builds(builds_passed),
+        },
+        window_width_days=7,
+        context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
+    )
+    analyze_build_stability(builds_all, builds_passed, window_width_days=7)
+
+    plt.show()
+    sys.exit(0)
+    analyze_passed_builds(builds_all)
 
 
-def analyze_passed_builds(builds):
+def analyze_build_stability(builds_all, builds_passed, window_width_days):
+    log.info(
+        "perform build stability analysis (from all builds, passed builds) -- window_width_days: %s",
+        window_width_days,
+    )
+
+    df_all = construct_df_for_builds(builds_all)
+    df_passed = construct_df_for_builds(builds_passed)
+
+    rolling_build_rate_all = analysis.calc_rolling_event_rate(
+        df_all.index.to_series(), window_width_seconds=86400 * window_width_days
+    )
+
+    # Passed builds: upsample/fill gaps with 0, so that the following
+    # passed/all division shows stability '0' when build_rate_all is non-NaN
+    rolling_build_rate_passed = analysis.calc_rolling_event_rate(
+        df_passed.index.to_series(),
+        window_width_seconds=86400 * window_width_days,
+        upsample=True,
+    )
+    rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
+    plot.plot_build_stability(
+        rolling_window_stability,
+        window_width_days,
+        context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
+    )
+
+
+def analyze_passed_builds(builds_all):
+    log.info("analyze passed builds")
+
+    builds = bfilter.filter_builds_passed(
+        bfilter.filter_builds_based_on_duration(builds_all)
+    )
 
     log.info("identify the set of step keys observed across builds")
     step_key_counter, jobs_by_key = identify_top_n_step_keys(builds, 7)
 
     # Analysis and plots for entire pipeline, for passed builds.
-    df_passed = construct_df_for_builds(builds)
+    df = construct_df_for_builds(builds)
 
-    (
-        _,
-        figure_filepath_latency_raw_linscale,
-        figure_filepath_latency_raw_logscale,
-    ) = plot.plot_duration(
-        df_passed,
+    plot.plot_duration(
+        df,
+        context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
         metricname="duration_seconds",
         rollingwindow_w_days=10,
         ylabel="pipeline duration (hours)",
@@ -88,6 +143,7 @@ def analyze_passed_builds(builds):
         print(df_job)
         plot.plot_duration(
             df_job,
+            context_descr=f"{CFG().args.org}/{CFG().args.pipeline}/{step_key}",
             metricname="duration_seconds",
             rollingwindow_w_days=10,
             ylabel="job duration (hours)",
@@ -100,9 +156,15 @@ def analyze_passed_builds(builds):
 def construct_df_for_jobs(jobs):
 
     log.info("build pandas dataframe for passed jobs")
+
+    # Drop those jobs that do not have an numeric duration (applies to jobs)
+    # that never started.
+    jobs = [j for j in jobs if j["duration_seconds"] is not None]
+
     df_dict = {
         "started_at": [j["started_at"] for j in jobs],
         "build_number": [j["build_number"] for j in jobs],
+        # May be `None` -> `NaN` for failed jobs
         "duration_seconds": [j["duration_seconds"] for j in jobs],
     }
 
@@ -110,6 +172,7 @@ def construct_df_for_jobs(jobs):
     # Sort by time, from past to future.
     log.info("df: sort by time")
     df.sort_index(inplace=True)
+    # df.index._validate_monotonic()
     return df
 
 
@@ -119,6 +182,7 @@ def construct_df_for_builds(builds, jobs=False, ignore_builds=None):
     df_dict = {
         "started_at": [b["started_at"] for b in builds],
         "build_number": [b["number"] for b in builds],
+        # May be `None` -> `NaN` for failed builds
         "duration_seconds": [b["duration_seconds"] for b in builds],
     }
 
