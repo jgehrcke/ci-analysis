@@ -56,6 +56,8 @@ def main():
         load_all_builds(CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED])
     )
 
+    set_common_x_limit_for_plotting(builds_all)
+
     plot.matplotlib_config()
 
     builds_passed = bfilter.filter_builds_passed(
@@ -63,8 +65,6 @@ def main():
     )
 
     analyze_passed_builds(builds_all)
-    plt.show()
-    sys.exit(0)
     plot.plot_build_rate(
         {
             "all builds": construct_df_for_builds(builds_all),
@@ -77,7 +77,20 @@ def main():
 
     plt.show()
     sys.exit(0)
-    analyze_passed_builds(builds_all)
+
+
+def set_common_x_limit_for_plotting(builds_all):
+    # Get earliest and latest builds (their "time")
+    # Rely on result df of this func to be sorted by time: past -> future
+    df = construct_df_for_builds(builds_all)
+    mintime_across_builds = df.index[0]
+    maxtime_across_builds = df.index[-1]
+    diff = maxtime_across_builds - mintime_across_builds
+
+    plot.set_x_limit_for_all_plots(
+        lower=mintime_across_builds - 0.03 * diff,
+        upper=maxtime_across_builds + 0.03 * diff,
+    )
 
 
 def analyze_build_stability(builds_all, builds_passed, window_width_days):
