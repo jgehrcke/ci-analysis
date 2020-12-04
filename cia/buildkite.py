@@ -64,8 +64,8 @@ def main():
     )
 
     # analyze_passed_builds(builds_all)
-    # analyze_build_rate({"all builds": builds_all, "passed builds": builds_passed}, 7)
-    analyze_build_stability(builds_all, builds_passed, 28)
+    analyze_build_rate({"all builds": builds_all, "passed builds": builds_passed}, 7)
+    analyze_build_stability(builds_all, builds_passed, 7)
     plt.show()
     sys.exit(0)
     analyze_passed_builds(builds_all)
@@ -96,7 +96,7 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
 
     rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
 
-    # log.info("Plot build rate: window width (days): %s", window_width_days)
+    log.info("Plot build stability: window width (days): %s", window_width_days)
     ax = rolling_window_stability.plot(
         linestyle="solid",  # dot",
         # linestyle='None',
@@ -106,10 +106,13 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
     )
 
     ylabel = "build stability"
-    ax.set_xlabel("build start time", fontsize=10)
+
+    # This is the build start time, but that has negligible impact on the
+    # visualization.
+    ax.set_xlabel("build time", fontsize=10)
     ax.set_ylabel(ylabel, fontsize=10)
     ax.legend(legendlist, numpoints=4, fontsize=8)
-    plt.ylim(0, 1)
+    plt.ylim(0, 1.5)
     plt.tight_layout(rect=(0, 0, 1, 0.95))
 
 
@@ -141,7 +144,9 @@ def analyze_build_rate(builds_map, window_width_days):
         )
 
     ylabel = "build rate [1/d]"
-    ax.set_xlabel("build start time", fontsize=10)
+    # This is the build start time, but that has negligible impact on the
+    # visualization.
+    ax.set_xlabel("build time", fontsize=10)
     ax.set_ylabel(ylabel, fontsize=10)
     ax.legend(legendlist, numpoints=4, fontsize=8)
     plt.tight_layout(rect=(0, 0, 1, 0.95))
