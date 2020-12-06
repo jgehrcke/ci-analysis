@@ -233,7 +233,10 @@ def construct_df_for_jobs(jobs):
     # Sort by time, from past to future.
     log.info("df: sort by time")
     df.sort_index(inplace=True)
-    # df.index._validate_monotonic()
+    print(df)
+    df.index = df.index.round("S")
+    print("AFTER ROUNDING")
+    print(df)
     return df
 
 
@@ -252,6 +255,10 @@ def construct_df_for_builds(builds, jobs=False, ignore_builds=None):
     # Sort by time, from past to future.
     log.info("df: sort by time")
     df.sort_index(inplace=True)
+    print(df)
+    df.index = df.index.round("S")
+    print("AFTER ROUNDING")
+    print(df)
     return df
 
 
