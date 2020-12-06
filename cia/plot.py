@@ -115,34 +115,29 @@ class Plot(ABC):
     _savefig_title = "override"
 
     def _savefig_mpl(self, fig, title):
-        """
-        Expected to return just the base name (not the complete path).
-
-        `fig`: explicitly pass in figure object. Can obtain with `gcf()`.
-        """
-        # Lowercase, replace special chars with whitespace, join on whitespace.
-        cleantitle = "-".join(re.sub("[^a-z0-9]+", " ", title.lower()).split())
-
-        fname = TODAY + "_" + cleantitle
-
-        fpath_figure = os.path.join(CFG().args.output_directory, fname + ".png")
-        log.info("Writing PNG figure to %s", fpath_figure)
-        plt.savefig(fpath_figure, dpi=150)
-        return os.path.basename(fpath_figure)
+        return savefig(fig, title)
 
     def plot_mpl_singlefig(self):
         log.info("singlefig plot: %s", self.__class__.__name__)
-        fig = plt.figure()
 
-        self._plot_mpl_core()
+        # Create a new figure.
+        fig = plt.figure()
+        ax = plt.gca()
+        self._plot_mpl_core(ax)
 
         plt.tight_layout(rect=(0, 0, 1, 0.95))
         # fig.close()
         figure_filepath = self._savefig_mpl(fig, self._savefig_title)
         return fig, figure_filepath
 
+    def plot_mpl_subplot(self, ax):
+        log.info("plot_mpl_subplot: ax: %s", ax)
+        plt.sca(ax)
+        self._plot_mpl_core(ax)
+        return ax
+
     @abstractmethod
-    def _plot_mpl_core(self):
+    def _plot_mpl_core(self, ax):
         raise NotImplementedError()
 
 
@@ -153,21 +148,17 @@ class PlotStability(Plot):
         self.context_descr = context_descr
         self._savefig_title = f"stability {context_descr}"
 
-    def plot_mpl_subplot(self, ax):
-        plt.sca(ax)
-        self._plot_mpl_core()
-        return ax
-
-    def _plot_mpl_core(self):
+    def _plot_mpl_core(self, ax):
         log.info("window width (days): %s", self.wwd)
         legendlist = []
 
-        ax = self.series.plot(
+        self.series.plot(
             linestyle="solid",  # dot",
             # linestyle='None',
             # marker=".",
             markersize=0.8,
             markeredgecolor="gray",
+            # ax=ax,
         )
 
         legendlist.append(f"rolling window mean ({self.wwd} days)")
@@ -198,13 +189,7 @@ class PlotBuildrate(Plot):
         self.context_descr = context_descr
         self._savefig_title = f"build rate {context_descr}"
 
-    def plot_mpl_subplot(self, ax):
-        plt.sca(ax)
-        self._plot_mpl_core()
-        return ax
-
-    def _plot_mpl_core(self):
-        ax = plt.gca()
+    def _plot_mpl_core(self, ax):
         legendlist = []
 
         for descr, df in self.builds_map.items():
@@ -228,6 +213,7 @@ class PlotBuildrate(Plot):
                 # marker=".",
                 markersize=0.8,
                 markeredgecolor="gray",
+                # ax=ax,
             )
 
         ylabel = "build rate [1/d]"
@@ -294,8 +280,9 @@ class PlotDuration(Plot):
     def plot_mpl_singlefig(self):
         log.info("plot_mpl_singlefig: for build duration")
         fig = plt.figure()
+        ax = plt.gca()
 
-        self._plot_mpl_core()
+        self._plot_mpl_core(ax)
         if self.ylog:
             self._mutate_cur_mpl_ax_to_logscale()
 
@@ -303,16 +290,15 @@ class PlotDuration(Plot):
         figure_filepath = self._savefig_mpl(fig, self._savefig_title)
         return fig, figure_filepath
 
-    def plot_mpl_linscale_subplot(self, ax):
-        plt.sca(ax)
-        self._plot_mpl_core()
-        return ax
+    def _plot_mpl_core(self, ax):
 
-    def _plot_mpl_core(self):
+        log.info("_plot_mpl_core: ax: %s", id(ax))
 
         width_string = f"{self.wwd}d"
-
         series_to_plot = self.df[self.metricname].copy()
+
+        print("XXX")
+        print(series_to_plot)
 
         # Convert from unit [seconds] to [hours].
         if self.convert_to_hours:
@@ -327,39 +313,39 @@ class PlotDuration(Plot):
 
         legendlist = []
 
-        ax = None
-
         if self.show_median:
-            ax = median.plot(
+            median.plot(
                 linestyle="solid",
                 dash_capstyle="round",
                 color="black",
                 linewidth=1.3,
-                zorder=10,
+                # zorder=10,
+                # ax=ax,
             )
             legendlist.append(f"rolling window median ({self.wwd} days)")
 
         if self.show_raw:
-            ax = series_to_plot.plot(
+            print("YYYYY")
+            series_to_plot.plot(
                 # linestyle='dashdot',
                 linestyle="None",
                 color="gray",
                 marker=".",
                 markersize=4,
                 markeredgecolor="gray",
-                ax=ax,
-                zorder=1,  # Show in the back.
+                # ax=ax,
+                # zorder=1,  # Show in the back.
                 clip_on=True,
             )
             legendlist.append("individual builds")
 
         if self.show_mean:
-            ax = mean.plot(
+            mean.plot(
                 linestyle="solid",
                 color="#e05f4e",
                 linewidth=1.3,
-                ax=ax,
-                zorder=5,
+                # ax=ax,
+                # zorder=5,
             )
             legendlist.append(f"rolling window mean ({self.wwd} days)")
 
@@ -381,13 +367,8 @@ class PlotDuration(Plot):
             transform=ax.transAxes,
             color="#666666",
         )
-        # plt.xticks(fontsize=14,
 
-        # set_title('Time-to-merge for PRs in both DC/OS repositories')
-        # subtitle = 'Freq spec from narrow rolling request rate -- ' + \
-        #    matcher.subtitle
-        # set_subtitle('Raw data')
-        # plt.tight_layout(rect=(0, 0, 1, 0.95))
+        log.info("_plot_mpl_core END: ax: %s", id(ax))
 
         ax.legend(legendlist, numpoints=4, fontsize=8)
         return median, ax
@@ -395,7 +376,7 @@ class PlotDuration(Plot):
     def _mutate_cur_mpl_ax_to_logscale(self):
         log.info("mutate current ax to logscale")
 
-        median, ax = self._plot_mpl_core()
+        median, ax = self._plot_mpl_core(ax)
         plt.yscale("log")
 
         # Set ytick labels using 0.01, 0.1, 1, 10, 100, instead of 10^0 etc.
@@ -429,3 +410,20 @@ def matplotlib_config():
     # ggplot's color cylcle seems to be too short for having 8 line plots on the
     # same Axes.
     matplotlib.rcParams["axes.prop_cycle"] = original_color_cycle
+
+
+def savefig(fig, title):
+    """
+    Expected to return just the base name (not the complete path).
+
+    `fig`: explicitly pass in figure object. Can obtain with `gcf()`.
+    """
+    # Lowercase, replace special chars with whitespace, join on whitespace.
+    cleantitle = "-".join(re.sub("[^a-z0-9]+", " ", title.lower()).split())
+
+    fname = TODAY + "_" + cleantitle
+
+    fpath_figure = os.path.join(CFG().args.output_directory, fname + ".png")
+    log.info("Writing PNG figure to %s", fpath_figure)
+    fig.savefig(fpath_figure, dpi=150)
+    return os.path.basename(fpath_figure)
