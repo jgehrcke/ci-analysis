@@ -67,17 +67,30 @@ def main():
         bfilter.filter_builds_based_on_duration(builds_all)
     )
 
+    # fig_for_subplots, axs_for_subplots = plt.subplots(2)
+
+    # axs[0].plot(x, y)
+    # axs[1].plot(x, -y)
+
     analyze_passed_builds(builds_all)
-    plot.plot_build_rate(
-        {
+    # axes_to_plot_to = []
+    # axes_to_plot_to.append(plot.get_axes_in_new_fig())
+    # axes_to_plot_to.append(axs_for_subplots[0])
+
+    p = plot.PlotBuildrate(
+        builds_map={
             "all builds": construct_df_for_builds(builds_all),
             "passed builds": construct_df_for_builds(builds_passed),
         },
         window_width_days=7,
         context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
     )
+    p.plot_mpl_singlefig()
+
     analyze_build_stability(builds_all, builds_passed, window_width_days=7)
 
+    # plot.show_ax_objs_info()
+    # plot.subplots_from_axs_objs()
     plt.show()
     sys.exit(0)
 
@@ -117,11 +130,12 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
         upsample=True,
     )
     rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
-    plot.plot_build_stability(
-        rolling_window_stability,
-        window_width_days,
+    p = plot.PlotStability(
+        rolling_window_stability=rolling_window_stability,
+        window_width_days=window_width_days,
         context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
     )
+    p.plot_mpl_singlefig()
 
 
 def analyze_passed_builds(builds_all):
@@ -137,8 +151,8 @@ def analyze_passed_builds(builds_all):
     # Analysis and plots for entire pipeline, for passed builds.
     df = construct_df_for_builds(builds)
 
-    plot.plot_duration(
-        df,
+    p = plot.PlotDuration(
+        df=df,
         context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
         metricname="duration_seconds",
         rollingwindow_w_days=10,
@@ -147,6 +161,7 @@ def analyze_passed_builds(builds_all):
         title="pipeline",
         convert_to_hours=True,
     )
+    p.plot_mpl_singlefig()
 
     # Generate a flat list containing all build jobs across all passed
     # pipelines.
@@ -157,7 +172,7 @@ def analyze_passed_builds(builds_all):
         log.info("generate dataframe from list of jobs for step: %s", step_key)
         df_job = construct_df_for_jobs(jobs_by_key[step_key])
         print(df_job)
-        plot.plot_duration(
+        p = plot.PlotDuration(
             df_job,
             context_descr=f"{CFG().args.org}/{CFG().args.pipeline}/{step_key}",
             metricname="duration_seconds",
@@ -167,6 +182,7 @@ def analyze_passed_builds(builds_all):
             title=step_key,
             convert_to_hours=True,
         )
+        p.plot_mpl_singlefig()
 
 
 def construct_df_for_jobs(jobs):
