@@ -299,6 +299,8 @@ class PlotDuration(Plot):
 
         print("XXX")
         print(series_to_plot)
+        print(series_to_plot.index)
+        print(type(series_to_plot.index))
 
         # Convert from unit [seconds] to [hours].
         if self.convert_to_hours:

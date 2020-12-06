@@ -83,7 +83,7 @@ def main():
 
     analyze_passed_builds(builds_all)
 
-    # analyze_build_stability(builds_all, builds_passed, window_width_days=7)
+    analyze_build_stability(builds_all, builds_passed, window_width_days=7)
 
     create_summary_fig_with_subplots()
 
@@ -161,6 +161,12 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
         window_width_days=window_width_days,
         context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
     )
+
+    print("ZZZ")
+    print(rolling_window_stability)
+    print(rolling_window_stability.index)
+    print(type(rolling_window_stability.index))
+
     p.plot_mpl_singlefig()
     _PLOTS_FOR_SUBPLOTS.append(p)
 
