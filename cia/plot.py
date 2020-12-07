@@ -95,6 +95,8 @@ _GLOBAL_X_LIMIT = None
 #     # close the figure the original axis was bound to
 #     plt.close(old_fig)
 
+_Y_LABEL_FONTSIZE = 9
+
 
 def set_x_limit_for_all_plots(lower, upper):
     global _GLOBAL_X_LIMIT
@@ -168,7 +170,7 @@ class PlotStability(Plot):
         # This is the build start time, but that has negligible impact on the
         # visualization.
         ax.set_xlabel("build time", fontsize=10)
-        ax.set_ylabel(ylabel, fontsize=10)
+        ax.set_ylabel(ylabel, fontsize=_Y_LABEL_FONTSIZE)
         ax.legend(legendlist, numpoints=4, fontsize=8, loc="upper left")
         # text coords: x, y
         ax.text(
@@ -220,7 +222,7 @@ class PlotBuildrate(Plot):
         # This is the build start time, but that has negligible impact on the
         # visualization.
         ax.set_xlabel("build time", fontsize=10)
-        ax.set_ylabel(ylabel, fontsize=10)
+        ax.set_ylabel(ylabel, fontsize=_Y_LABEL_FONTSIZE)
 
         if _GLOBAL_X_LIMIT:
             log.info("plot: set global xlim: %s", _GLOBAL_X_LIMIT)
@@ -349,7 +351,7 @@ class PlotDuration(Plot):
         if self.xlabel is None:
             ax.set_xlabel("build start time", fontsize=10)
 
-        ax.set_ylabel(self.ylabel, fontsize=10)
+        ax.set_ylabel(self.ylabel, fontsize=_Y_LABEL_FONTSIZE)
 
         # text coords: x, y
         ax.text(
