@@ -38,78 +38,9 @@ import cia.analysis as analysis
 
 log = logging.getLogger(__name__)
 
-
 _GLOBAL_X_LIMIT = None
-
-# _AX_OBJS = []
-
-
-# def show_ax_objs_info():
-#     for i, ax_serialized in enumerate(_AX_OBJS, 1):
-#         log.info("ax %s size bytes: %s", i, len(ax_serialized))
-
-
-# def subplots_from_axs_objs():
-
-#     n_rows = len(_AX_OBJS)
-#     new_fig = plt.figure()
-#     new_axs = new_fig.subplots(n_rows, 1, sharex=True)
-
-#     for old_ax_serialized, new_axs in zip(_AX_OBJS, new_axs):
-#         old_ax = pickle.loads(old_ax_serialized)
-#         move_axes(old_ax, new_fig, new_axs)
-
-#     # Align the subplots a little nicer, make more use of space. `hspace`: The
-#     # amount of height reserved for space between subplots, expressed as a
-#     # fraction of the average axis height
-#     # plt.subplots_adjust(hspace=0.05, left=0.05, right=0.97, bottom=0.1, top=0.95)
-#     plt.show()
-
-
-# def new_figure_shunt(**kwargs):
-#     ...
-
-
-# def move_axes(old_ax, new_fig, new_ax_placeholder):
-
-#     # get a reference to the old figure context so we can release it
-#     old_fig = old_ax.figure
-
-#     # remove the Axes from it's original Figure context
-#     old_ax.remove()
-
-#     # set the pointer from the Axes to the new figure
-#     old_ax.figure = new_fig
-
-#     # add the Axes to the registry of axes for the figure
-#     # new_fig.axes.append(old_ax)
-#     # twice, I don't know why...
-#     new_fig.add_axes(old_ax)
-
-#     old_ax.add_artist(new_fig)
-
-#     # then copy the relevant data from the dummy to the ax
-#     old_ax.set_position(new_ax_placeholder.get_position())
-#     new_ax_placeholder.remove()
-
-#     # close the figure the original axis was bound to
-#     plt.close(old_fig)
-
-_Y_LABEL_FONTSIZE = 9
-
-
-def set_x_limit_for_all_plots(lower, upper):
-    global _GLOBAL_X_LIMIT
-
-    log.info("set common x limits for plots: %s, %s", lower, upper)
-    _GLOBAL_X_LIMIT = (lower, upper)
-
-
-def get_axes_in_new_fig():
-    plt.figure()
-    # Add an axes to the current figure and make it the current axes.
-    ax = plt.axes()
-    return ax
+_Y_LABEL_FONTSIZE = 7
+_CONTEXT_LABEL_FONTSIZE = 7
 
 
 class Plot(ABC):
@@ -120,7 +51,11 @@ class Plot(ABC):
         return savefig(fig, title)
 
     def plot_mpl_singlefig(self):
-        log.info("singlefig plot: %s", self.__class__.__name__)
+        if CFG().args.multi_plot_only:
+            log.info("skip singlefig plot: %s", self.__class__.__name__)
+            return
+
+        log.info("create singlefig plot: %s", self.__class__.__name__)
 
         # Create a new figure.
         fig = plt.figure()
@@ -133,8 +68,8 @@ class Plot(ABC):
         return fig, figure_filepath
 
     def plot_mpl_subplot(self, ax):
-        log.info("plot_mpl_subplot: ax: %s", ax)
-        plt.sca(ax)
+        log.debug("plot_mpl_subplot: ax: %s (%s)", ax, id(ax))
+        # plt.sca(ax)
         self._plot_mpl_core(ax)
         return ax
 
@@ -171,13 +106,13 @@ class PlotStability(Plot):
         # visualization.
         ax.set_xlabel("build time", fontsize=10)
         ax.set_ylabel(ylabel, fontsize=_Y_LABEL_FONTSIZE)
-        ax.legend(legendlist, numpoints=4, fontsize=8, loc="upper left")
+        ax.legend(legendlist, numpoints=4, loc="upper left")
         # text coords: x, y
         ax.text(
             0.01,
             0.04,
             self.context_descr,
-            fontsize=8,
+            fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
             color="#666666",
         )
@@ -228,13 +163,13 @@ class PlotBuildrate(Plot):
             log.info("plot: set global xlim: %s", _GLOBAL_X_LIMIT)
             # ax.set_xlim(_GLOBAL_X_LIMIT)
 
-        ax.legend(legendlist, numpoints=4, fontsize=8)
+        ax.legend(legendlist, numpoints=4)
         # text coords: x, y
         ax.text(
             0.01,
             0.04,
             self.context_descr,
-            fontsize=8,
+            fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
             color="#666666",
         )
@@ -279,19 +214,6 @@ class PlotDuration(Plot):
             f"{context_descr} {title} {metricname} {self._linlog} {descr_suffix}"
         )
 
-    def plot_mpl_singlefig(self):
-        log.info("plot_mpl_singlefig: for build duration")
-        fig = plt.figure()
-        ax = plt.gca()
-
-        self._plot_mpl_core(ax)
-        if self.ylog:
-            self._mutate_cur_mpl_ax_to_logscale()
-
-        plt.tight_layout(rect=(0, 0, 1, 0.95))
-        figure_filepath = self._savefig_mpl(fig, self._savefig_title)
-        return fig, figure_filepath
-
     def _plot_mpl_core(self, ax):
 
         log.info("_plot_mpl_core: ax: %s", id(ax))
@@ -316,7 +238,7 @@ class PlotDuration(Plot):
             median.plot(
                 linestyle="solid",
                 dash_capstyle="round",
-                color="black",
+                color="#666666",
                 linewidth=1.3,
                 zorder=10,
             )
@@ -328,8 +250,8 @@ class PlotDuration(Plot):
                 linestyle="None",
                 color="gray",
                 marker=".",
-                markersize=4,
-                markeredgecolor="gray",
+                markersize=3,
+                markeredgecolor="#aaaaaa",
                 zorder=1,  # Show in the back.
                 clip_on=True,
             )
@@ -358,14 +280,19 @@ class PlotDuration(Plot):
             0.01,
             0.04,
             self.context_descr,
-            fontsize=8,
+            fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
             color="#666666",
         )
 
-        log.info("_plot_mpl_core END: ax: %s", id(ax))
+        log.debug("_plot_mpl_core END: ax: %s", id(ax))
 
-        ax.legend(legendlist, numpoints=4, fontsize=8)
+        ax.legend(legendlist, numpoints=4)
+
+        if self.ylog:
+            # untested so far
+            self._mutate_cur_mpl_ax_to_logscale()
+
         return median, ax
 
     def _mutate_cur_mpl_ax_to_logscale(self):
@@ -390,10 +317,25 @@ class PlotDuration(Plot):
         ax.set_xlim(ax.get_xlim()[0] - 1, ax.get_xlim()[1] + 1)
 
 
+def set_x_limit_for_all_plots(lower, upper):
+    global _GLOBAL_X_LIMIT
+
+    log.info("set common x limits for plots: %s, %s", lower, upper)
+    _GLOBAL_X_LIMIT = (lower, upper)
+
+
+# def get_axes_in_new_fig():
+#     plt.figure()
+#     # Add an axes to the current figure and make it the current axes.
+#     ax = plt.axes()
+#     return ax
+
+
 def matplotlib_config():
     matplotlib.rcParams["xtick.labelsize"] = 6
     matplotlib.rcParams["ytick.labelsize"] = 6
     matplotlib.rcParams["axes.labelsize"] = 10
+    matplotlib.rcParams["legend.fontsize"] = 6
     matplotlib.rcParams["figure.figsize"] = [10.0, 4.2]
     matplotlib.rcParams["figure.dpi"] = 100
     matplotlib.rcParams["savefig.dpi"] = 190

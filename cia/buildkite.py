@@ -40,7 +40,7 @@ import cia.plot as plot
 import cia.utils as utils
 import cia.filter as bfilter
 import cia.analysis as analysis
-from cia.cfg import CFG
+from cia.cfg import CFG, TODAY
 
 
 log = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ def main():
 
     # plot.show_ax_objs_info()
     # plot.subplots_from_axs_objs()
-    plt.show()
+    # plt.show()
     sys.exit(0)
 
 
@@ -97,7 +97,7 @@ def create_summary_fig_with_subplots():
     n_rows = len(_PLOTS_FOR_SUBPLOTS)
     fig = plt.figure()
 
-    fig.set_size_inches(2 * n_rows, 13)
+    fig.set_size_inches(1.5 * n_rows, 11)
 
     log.info("create figure with subplots for these:")
     for p in _PLOTS_FOR_SUBPLOTS:
@@ -106,7 +106,7 @@ def create_summary_fig_with_subplots():
     # hard-code: 1 column
     new_axs = fig.subplots(n_rows, 1, sharex=True)
     for p, ax in zip(_PLOTS_FOR_SUBPLOTS, new_axs):
-        log.info("re-plot %s to ax %s", p, id(ax))
+        log.debug("re-plot %s to ax %s", p, id(ax))
         # Set currently active axis to axis object handed over to this
         # function. That makes df.plot() add the data to said axis.
         # Also pass `ax` explicitly.
@@ -116,9 +116,32 @@ def create_summary_fig_with_subplots():
     # Align the subplots a little nicer, make more use of space. `hspace`: The
     # amount of height reserved for space between subplots, expressed as a
     # fraction of the average axis height
-    plt.xlabel("build time", fontsize=10)
-    plt.subplots_adjust(hspace=0.05, left=0.05, right=0.97, bottom=0.1, top=0.95)
-    plt.show()
+    plt.xlabel("build date", fontsize=10)
+
+    # Add title and subtitle to figure.
+    fig.text(
+        0.5,
+        0.98,
+        f"{CFG().args.org}/{CFG().args.pipeline} pipeline summary ({TODAY})",
+        verticalalignment="center",
+        horizontalalignment="center",
+        fontsize=11,
+        color="#666666",
+    )
+
+    # fig.text(
+    #     0.5,
+    #     0.96,
+    #     "subtitle lasudkojk",
+    #     verticalalignment="center",
+    #     horizontalalignment="center",
+    #     fontsize=10,
+    #     color="gray",
+    # )
+
+    plt.subplots_adjust(hspace=0.08, left=0.05, right=0.97, bottom=0.1, top=0.96)
+    plot.savefig(plt.gcf(), "multiplot summary")
+    # plt.show()
 
 
 def set_common_x_limit_for_plotting(builds_all):
@@ -181,7 +204,7 @@ def analyze_passed_builds(builds_all):
 
     p = plot.PlotDuration(
         df=df,
-        context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
+        context_descr=f"{CFG().args.org}/{CFG().args.pipeline} (passed)",
         metricname="duration_seconds",
         rollingwindow_w_days=10,
         ylabel="pipeline duration (hours)",
@@ -203,7 +226,7 @@ def analyze_passed_builds(builds_all):
         print(df_job)
         p = plot.PlotDuration(
             df_job,
-            context_descr=f"{CFG().args.org}/{CFG().args.pipeline}/{step_key}",
+            context_descr=f"{CFG().args.org}/{CFG().args.pipeline}/{step_key} (passed)",
             metricname="duration_seconds",
             rollingwindow_w_days=10,
             ylabel="job duration (hours)",
