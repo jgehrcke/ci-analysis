@@ -40,6 +40,7 @@ log = logging.getLogger(__name__)
 
 _GLOBAL_X_LIMIT = None
 _Y_LABEL_FONTSIZE = 7
+_CONTEXT_LABEL_FONTSIZE = 7
 
 
 class Plot(ABC):
@@ -111,7 +112,7 @@ class PlotStability(Plot):
             0.01,
             0.04,
             self.context_descr,
-            fontsize=8,
+            fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
             color="#666666",
         )
@@ -168,7 +169,7 @@ class PlotBuildrate(Plot):
             0.01,
             0.04,
             self.context_descr,
-            fontsize=8,
+            fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
             color="#666666",
         )
@@ -249,8 +250,8 @@ class PlotDuration(Plot):
                 linestyle="None",
                 color="gray",
                 marker=".",
-                markersize=4,
-                markeredgecolor="gray",
+                markersize=3,
+                markeredgecolor="#aaaaaa",
                 zorder=1,  # Show in the back.
                 clip_on=True,
             )
@@ -279,7 +280,7 @@ class PlotDuration(Plot):
             0.01,
             0.04,
             self.context_descr,
-            fontsize=8,
+            fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
             color="#666666",
         )
