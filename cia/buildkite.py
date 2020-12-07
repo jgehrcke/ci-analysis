@@ -88,7 +88,7 @@ def main():
 
     # plot.show_ax_objs_info()
     # plot.subplots_from_axs_objs()
-    plt.show()
+    # plt.show()
     sys.exit(0)
 
 
@@ -97,7 +97,7 @@ def create_summary_fig_with_subplots():
     n_rows = len(_PLOTS_FOR_SUBPLOTS)
     fig = plt.figure()
 
-    fig.set_size_inches(2 * n_rows, 13)
+    fig.set_size_inches(1.5 * n_rows, 11)
 
     log.info("create figure with subplots for these:")
     for p in _PLOTS_FOR_SUBPLOTS:
@@ -106,7 +106,7 @@ def create_summary_fig_with_subplots():
     # hard-code: 1 column
     new_axs = fig.subplots(n_rows, 1, sharex=True)
     for p, ax in zip(_PLOTS_FOR_SUBPLOTS, new_axs):
-        log.info("re-plot %s to ax %s", p, id(ax))
+        log.debug("re-plot %s to ax %s", p, id(ax))
         # Set currently active axis to axis object handed over to this
         # function. That makes df.plot() add the data to said axis.
         # Also pass `ax` explicitly.
@@ -116,9 +116,10 @@ def create_summary_fig_with_subplots():
     # Align the subplots a little nicer, make more use of space. `hspace`: The
     # amount of height reserved for space between subplots, expressed as a
     # fraction of the average axis height
-    plt.xlabel("build time", fontsize=10)
+    plt.xlabel("build date", fontsize=10)
     plt.subplots_adjust(hspace=0.05, left=0.05, right=0.97, bottom=0.1, top=0.95)
-    plt.show()
+    plot.savefig(plt.gcf(), "multiplot summary")
+    # plt.show()
 
 
 def set_common_x_limit_for_plotting(builds_all):

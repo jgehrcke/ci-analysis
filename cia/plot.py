@@ -50,7 +50,11 @@ class Plot(ABC):
         return savefig(fig, title)
 
     def plot_mpl_singlefig(self):
-        log.info("singlefig plot: %s", self.__class__.__name__)
+        if CFG().args.multi_plot_only:
+            log.info("skip singlefig plot: %s", self.__class__.__name__)
+            return
+
+        log.info("create singlefig plot: %s", self.__class__.__name__)
 
         # Create a new figure.
         fig = plt.figure()
