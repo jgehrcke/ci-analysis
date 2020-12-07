@@ -112,4 +112,22 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
     # rolling_event_rate_d = rolling_event_rate_d[window_width_seconds:]
     # print(rolling_event_rate_d)
 
+    # There's a lot of magic going on between how the datetime64 values
+    # actually encode datetime in plots. Sharing an axis across (sub)plots is
+    # brittle w.r.t. these differences. Work around this, here: make it so that
+    # individual timestamps have a non-zero value for seconds, by simply adding
+    # one second, shifting the whole data set by one second to the left. That
+    # prevents, I guess, an optimization to hit in which would see that
+    # individual timestamps hit the full hour or integer  multiples of 30 or 15
+    # minutes. Also see
+    # https://github.com/pandas-dev/pandas/issues/15874
+    # https://github.com/pandas-dev/pandas/issues/15071
+    # https://github.com/pandas-dev/pandas/issues/31074
+    # https://github.com/pandas-dev/pandas/issues/29705
+    # https://github.com/pandas-dev/pandas/issues/29719
+    # https://github.com/pandas-dev/pandas/issues/18571
+    # https://github.com/pandas-dev/pandas/issues/11574
+    # https://github.com/pandas-dev/pandas/issues/22586
+    rolling_event_rate_d.index = rolling_event_rate_d.index + pd.to_timedelta("1 sec")
+
     return rolling_event_rate_d
