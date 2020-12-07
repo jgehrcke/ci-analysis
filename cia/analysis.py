@@ -103,13 +103,17 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
     # (incoming from the left) does not yet completely overlap with the data.
     # That is, here the rolling window result is (linearly increasing)
     # systematically to small. Because by now the time series has one sample
-    # per second, the number of leftmost samples with a bad result corresponds
-    # to the window width in seconds. Return just the slice
-    # `[window_width_seconds:]`. TODO: also strip off the right bit -- or
+    # per `n_minute_bins` minute, the number of leftmost samples with a bad
+    # result corresponds to `int(window_width_seconds / (n_minute_bins * 60))`.
+    rolling_event_rate_d = rolling_event_rate_d[
+        int(window_width_seconds / (n_minute_bins * 60)) :
+    ]
+
+    # TODO: also strip off the right bit -- or
     # forward-fill to "now" Note(JP): this is broken as of the non-regular
     # index: there is not one row per second now, but there are gaps -- need to
-    # think through, and fix.
-    # rolling_event_rate_d = rolling_event_rate_d[window_width_seconds:]
+    # think through, and fix. rolling_event_rate_d =
+    # rolling_event_rate_d[window_width_seconds:]
     # print(rolling_event_rate_d)
 
     # There's a lot of magic going on between how the datetime64 values
