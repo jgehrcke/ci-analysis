@@ -75,12 +75,12 @@ def main():
             "all builds": construct_df_for_builds(builds_all),
             "passed builds": construct_df_for_builds(builds_passed),
         },
-        window_width_days=7,
+        window_width_days=4,
         context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
     )
     p.plot_mpl_singlefig()
     _PLOTS_FOR_SUBPLOTS.append(p)
-    analyze_build_stability(builds_all, builds_passed, window_width_days=7)
+    analyze_build_stability(builds_all, builds_passed, window_width_days=4)
 
     analyze_passed_builds(builds_all)
 
@@ -116,6 +116,7 @@ def create_summary_fig_with_subplots():
     # Align the subplots a little nicer, make more use of space. `hspace`: The
     # amount of height reserved for space between subplots, expressed as a
     # fraction of the average axis height
+    plt.xlabel("build time", fontsize=10)
     plt.subplots_adjust(hspace=0.05, left=0.05, right=0.97, bottom=0.1, top=0.95)
     plt.show()
 
