@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 import logging
+from datetime import timezone
 
 import pandas as pd
 
@@ -109,12 +110,31 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
         int(window_width_seconds / (n_minute_bins * 60)) :
     ]
 
-    # TODO: also strip off the right bit -- or
-    # forward-fill to "now" Note(JP): this is broken as of the non-regular
-    # index: there is not one row per second now, but there are gaps -- need to
-    # think through, and fix. rolling_event_rate_d =
-    # rolling_event_rate_d[window_width_seconds:]
-    # print(rolling_event_rate_d)
+    # Forward-fill the last value up to "now" (for "today", it makse sense to
+    # plot the average ... of the last N days). It's symmetry-breaking for the
+    # entire time window, therefore the shift above -- but for today, it makes
+    # sense to look at the value, and plot it.
+    apdx_last_value = rolling_event_rate_d.iloc[-1]
+
+    # print(rolling_event_rate_d.index.max())
+    now = pd.Timestamp.now(tz=timezone.utc)
+    apdx_index = pd.date_range(
+        start=rolling_event_rate_d.index.max(),
+        end=now,
+        freq=f"{n_minute_bins}min",
+    )
+    apdx_series = pd.Series([apdx_last_value] * len(apdx_index), index=apdx_index)
+    print(apdx_index)
+    print(apdx_series)
+
+    log.info(
+        "rolling_event_rate_d: forward-fill to %s with last value %s",
+        now,
+        apdx_last_value,
+    )
+    rolling_event_rate_d = rolling_event_rate_d.append(apdx_series)
+
+    # df.set_index("dt").reindex(r).fillna(0.0).rename_axis("dt").reset_index()
 
     # There's a lot of magic going on between how the datetime64 values
     # actually encode datetime in plots. Sharing an axis across (sub)plots is
@@ -133,5 +153,7 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
     # https://github.com/pandas-dev/pandas/issues/11574
     # https://github.com/pandas-dev/pandas/issues/22586
     rolling_event_rate_d.index = rolling_event_rate_d.index + pd.to_timedelta("1 sec")
+
+    print(rolling_event_rate_d)
 
     return rolling_event_rate_d
