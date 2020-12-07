@@ -80,10 +80,9 @@ def main():
     )
     p.plot_mpl_singlefig()
     _PLOTS_FOR_SUBPLOTS.append(p)
+    analyze_build_stability(builds_all, builds_passed, window_width_days=7)
 
     analyze_passed_builds(builds_all)
-
-    analyze_build_stability(builds_all, builds_passed, window_width_days=7)
 
     create_summary_fig_with_subplots()
 
@@ -98,14 +97,14 @@ def create_summary_fig_with_subplots():
     n_rows = len(_PLOTS_FOR_SUBPLOTS)
     fig = plt.figure()
 
-    fig.set_size_inches(3 * n_rows, 13)
+    fig.set_size_inches(2 * n_rows, 13)
 
     log.info("create figure with subplots for these:")
     for p in _PLOTS_FOR_SUBPLOTS:
         print(p)
 
     # hard-code: 1 column
-    new_axs = fig.subplots(n_rows, 1)  # , sharex=True)
+    new_axs = fig.subplots(n_rows, 1, sharex=True)
     for p, ax in zip(_PLOTS_FOR_SUBPLOTS, new_axs):
         log.info("re-plot %s to ax %s", p, id(ax))
         # Set currently active axis to axis object handed over to this
@@ -161,11 +160,6 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
         window_width_days=window_width_days,
         context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
     )
-
-    print("ZZZ")
-    print(rolling_window_stability)
-    print(rolling_window_stability.index)
-    print(type(rolling_window_stability.index))
 
     p.plot_mpl_singlefig()
     _PLOTS_FOR_SUBPLOTS.append(p)
@@ -239,10 +233,12 @@ def construct_df_for_jobs(jobs):
     # Sort by time, from past to future.
     log.info("df: sort by time")
     df.sort_index(inplace=True)
-    print(df)
+
+    # Remove sub-second resolution from index. Goal: all indices of all
+    # dataframes must have 1s resolution, towards being able to share
+    # x axis. Also see https://github.com/pandas-dev/pandas/issues/15874.
     df.index = df.index.round("S")
-    print("AFTER ROUNDING")
-    print(df)
+
     return df
 
 
@@ -261,10 +257,10 @@ def construct_df_for_builds(builds, jobs=False, ignore_builds=None):
     # Sort by time, from past to future.
     log.info("df: sort by time")
     df.sort_index(inplace=True)
-    print(df)
+    # Remove sub-second resolution from index. Goal: all indices of all
+    # dataframes must have 1s resolution, towards being able to share
+    # x axis. Also see https://github.com/pandas-dev/pandas/issues/15874.
     df.index = df.index.round("S")
-    print("AFTER ROUNDING")
-    print(df)
     return df
 
 

@@ -224,7 +224,7 @@ class PlotBuildrate(Plot):
 
         if _GLOBAL_X_LIMIT:
             log.info("plot: set global xlim: %s", _GLOBAL_X_LIMIT)
-            ax.set_xlim(_GLOBAL_X_LIMIT)
+            # ax.set_xlim(_GLOBAL_X_LIMIT)
 
         ax.legend(legendlist, numpoints=4, fontsize=8)
         # text coords: x, y
@@ -297,11 +297,6 @@ class PlotDuration(Plot):
         width_string = f"{self.wwd}d"
         series_to_plot = self.df[self.metricname].copy()
 
-        print("XXX")
-        print(series_to_plot)
-        print(series_to_plot.index)
-        print(type(series_to_plot.index))
-
         # Convert from unit [seconds] to [hours].
         if self.convert_to_hours:
             series_to_plot = series_to_plot / 3600.0
@@ -321,13 +316,11 @@ class PlotDuration(Plot):
                 dash_capstyle="round",
                 color="black",
                 linewidth=1.3,
-                # zorder=10,
-                # ax=ax,
+                zorder=10,
             )
             legendlist.append(f"rolling window median ({self.wwd} days)")
 
         if self.show_raw:
-            print("YYYYY")
             series_to_plot.plot(
                 # linestyle='dashdot',
                 linestyle="None",
@@ -335,8 +328,7 @@ class PlotDuration(Plot):
                 marker=".",
                 markersize=4,
                 markeredgecolor="gray",
-                # ax=ax,
-                # zorder=1,  # Show in the back.
+                zorder=1,  # Show in the back.
                 clip_on=True,
             )
             legendlist.append("individual builds")
@@ -346,8 +338,7 @@ class PlotDuration(Plot):
                 linestyle="solid",
                 color="#e05f4e",
                 linewidth=1.3,
-                # ax=ax,
-                # zorder=5,
+                zorder=5,
             )
             legendlist.append(f"rolling window mean ({self.wwd} days)")
 
@@ -378,6 +369,7 @@ class PlotDuration(Plot):
     def _mutate_cur_mpl_ax_to_logscale(self):
         log.info("mutate current ax to logscale")
 
+        ax = plt.gca()
         median, ax = self._plot_mpl_core(ax)
         plt.yscale("log")
 
