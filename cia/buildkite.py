@@ -40,7 +40,7 @@ import cia.plot as plot
 import cia.utils as utils
 import cia.filter as bfilter
 import cia.analysis as analysis
-from cia.cfg import CFG
+from cia.cfg import CFG, TODAY
 
 
 log = logging.getLogger(__name__)
@@ -117,7 +117,29 @@ def create_summary_fig_with_subplots():
     # amount of height reserved for space between subplots, expressed as a
     # fraction of the average axis height
     plt.xlabel("build date", fontsize=10)
-    plt.subplots_adjust(hspace=0.05, left=0.05, right=0.97, bottom=0.1, top=0.95)
+
+    # Add title and subtitle to figure.
+    fig.text(
+        0.5,
+        0.98,
+        f"{CFG().args.org}/{CFG().args.pipeline} pipeline summary ({TODAY})",
+        verticalalignment="center",
+        horizontalalignment="center",
+        fontsize=11,
+        color="#666666",
+    )
+
+    # fig.text(
+    #     0.5,
+    #     0.96,
+    #     "subtitle lasudkojk",
+    #     verticalalignment="center",
+    #     horizontalalignment="center",
+    #     fontsize=10,
+    #     color="gray",
+    # )
+
+    plt.subplots_adjust(hspace=0.08, left=0.05, right=0.97, bottom=0.1, top=0.96)
     plot.savefig(plt.gcf(), "multiplot summary")
     # plt.show()
 
@@ -182,7 +204,7 @@ def analyze_passed_builds(builds_all):
 
     p = plot.PlotDuration(
         df=df,
-        context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
+        context_descr=f"{CFG().args.org}/{CFG().args.pipeline} (passed)",
         metricname="duration_seconds",
         rollingwindow_w_days=10,
         ylabel="pipeline duration (hours)",
@@ -204,7 +226,7 @@ def analyze_passed_builds(builds_all):
         print(df_job)
         p = plot.PlotDuration(
             df_job,
-            context_descr=f"{CFG().args.org}/{CFG().args.pipeline}/{step_key}",
+            context_descr=f"{CFG().args.org}/{CFG().args.pipeline}/{step_key} (passed)",
             metricname="duration_seconds",
             rollingwindow_w_days=10,
             ylabel="job duration (hours)",
