@@ -50,6 +50,9 @@ BK_CLIENT = Buildkite()
 BK_CLIENT.set_access_token(os.environ["BUILDKITE_API_TOKEN"])
 
 
+_PLOTS_FOR_SUBPLOTS = []
+
+
 def main():
 
     builds_all = rewrite_build_objects(
@@ -67,19 +70,55 @@ def main():
         bfilter.filter_builds_based_on_duration(builds_all)
     )
 
-    analyze_passed_builds(builds_all)
-    plot.plot_build_rate(
-        {
+    p = plot.PlotBuildrate(
+        builds_map={
             "all builds": construct_df_for_builds(builds_all),
             "passed builds": construct_df_for_builds(builds_passed),
         },
-        window_width_days=7,
+        window_width_days=4,
         context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
     )
-    analyze_build_stability(builds_all, builds_passed, window_width_days=7)
+    p.plot_mpl_singlefig()
+    _PLOTS_FOR_SUBPLOTS.append(p)
+    analyze_build_stability(builds_all, builds_passed, window_width_days=4)
 
+    analyze_passed_builds(builds_all)
+
+    create_summary_fig_with_subplots()
+
+    # plot.show_ax_objs_info()
+    # plot.subplots_from_axs_objs()
     plt.show()
     sys.exit(0)
+
+
+def create_summary_fig_with_subplots():
+
+    n_rows = len(_PLOTS_FOR_SUBPLOTS)
+    fig = plt.figure()
+
+    fig.set_size_inches(2 * n_rows, 13)
+
+    log.info("create figure with subplots for these:")
+    for p in _PLOTS_FOR_SUBPLOTS:
+        print(p)
+
+    # hard-code: 1 column
+    new_axs = fig.subplots(n_rows, 1, sharex=True)
+    for p, ax in zip(_PLOTS_FOR_SUBPLOTS, new_axs):
+        log.info("re-plot %s to ax %s", p, id(ax))
+        # Set currently active axis to axis object handed over to this
+        # function. That makes df.plot() add the data to said axis.
+        # Also pass `ax` explicitly.
+        plt.sca(ax)
+        p.plot_mpl_subplot(ax)
+
+    # Align the subplots a little nicer, make more use of space. `hspace`: The
+    # amount of height reserved for space between subplots, expressed as a
+    # fraction of the average axis height
+    plt.xlabel("build time", fontsize=10)
+    plt.subplots_adjust(hspace=0.05, left=0.05, right=0.97, bottom=0.1, top=0.95)
+    plt.show()
 
 
 def set_common_x_limit_for_plotting(builds_all):
@@ -117,11 +156,14 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
         upsample=True,
     )
     rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
-    plot.plot_build_stability(
-        rolling_window_stability,
-        window_width_days,
+    p = plot.PlotStability(
+        rolling_window_stability=rolling_window_stability,
+        window_width_days=window_width_days,
         context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
     )
+
+    p.plot_mpl_singlefig()
+    _PLOTS_FOR_SUBPLOTS.append(p)
 
 
 def analyze_passed_builds(builds_all):
@@ -137,8 +179,8 @@ def analyze_passed_builds(builds_all):
     # Analysis and plots for entire pipeline, for passed builds.
     df = construct_df_for_builds(builds)
 
-    plot.plot_duration(
-        df,
+    p = plot.PlotDuration(
+        df=df,
         context_descr=f"{CFG().args.org}/{CFG().args.pipeline}",
         metricname="duration_seconds",
         rollingwindow_w_days=10,
@@ -147,17 +189,19 @@ def analyze_passed_builds(builds_all):
         title="pipeline",
         convert_to_hours=True,
     )
+    p.plot_mpl_singlefig()
+    _PLOTS_FOR_SUBPLOTS.append(p)
 
     # Generate a flat list containing all build jobs across all passed
     # pipelines.
 
     # Analysis and plots for top N build steps.
-    for step_key, count in step_key_counter.most_common(4):
+    for step_key, count in step_key_counter.most_common(3):
         # Analysis and plots for a specific job key
         log.info("generate dataframe from list of jobs for step: %s", step_key)
         df_job = construct_df_for_jobs(jobs_by_key[step_key])
         print(df_job)
-        plot.plot_duration(
+        p = plot.PlotDuration(
             df_job,
             context_descr=f"{CFG().args.org}/{CFG().args.pipeline}/{step_key}",
             metricname="duration_seconds",
@@ -167,6 +211,8 @@ def analyze_passed_builds(builds_all):
             title=step_key,
             convert_to_hours=True,
         )
+        p.plot_mpl_singlefig()
+        _PLOTS_FOR_SUBPLOTS.append(p)
 
 
 def construct_df_for_jobs(jobs):
@@ -188,7 +234,12 @@ def construct_df_for_jobs(jobs):
     # Sort by time, from past to future.
     log.info("df: sort by time")
     df.sort_index(inplace=True)
-    # df.index._validate_monotonic()
+
+    # Remove sub-second resolution from index. Goal: all indices of all
+    # dataframes must have 1s resolution, towards being able to share
+    # x axis. Also see https://github.com/pandas-dev/pandas/issues/15874.
+    df.index = df.index.round("S")
+
     return df
 
 
@@ -207,6 +258,10 @@ def construct_df_for_builds(builds, jobs=False, ignore_builds=None):
     # Sort by time, from past to future.
     log.info("df: sort by time")
     df.sort_index(inplace=True)
+    # Remove sub-second resolution from index. Goal: all indices of all
+    # dataframes must have 1s resolution, towards being able to share
+    # x axis. Also see https://github.com/pandas-dev/pandas/issues/15874.
+    df.index = df.index.round("S")
     return df
 
 
