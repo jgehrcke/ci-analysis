@@ -38,9 +38,8 @@ import cia.analysis as analysis
 
 log = logging.getLogger(__name__)
 
-
 _GLOBAL_X_LIMIT = None
-
+_Y_LABEL_FONTSIZE = 7
 
 
 class Plot(ABC):
@@ -64,8 +63,8 @@ class Plot(ABC):
         return fig, figure_filepath
 
     def plot_mpl_subplot(self, ax):
-        log.info("plot_mpl_subplot: ax: %s", ax)
-        plt.sca(ax)
+        log.debug("plot_mpl_subplot: ax: %s (%s)", ax, id(ax))
+        # plt.sca(ax)
         self._plot_mpl_core(ax)
         return ax
 
@@ -102,7 +101,7 @@ class PlotStability(Plot):
         # visualization.
         ax.set_xlabel("build time", fontsize=10)
         ax.set_ylabel(ylabel, fontsize=_Y_LABEL_FONTSIZE)
-        ax.legend(legendlist, numpoints=4, fontsize=8, loc="upper left")
+        ax.legend(legendlist, numpoints=4, loc="upper left")
         # text coords: x, y
         ax.text(
             0.01,
@@ -159,7 +158,7 @@ class PlotBuildrate(Plot):
             log.info("plot: set global xlim: %s", _GLOBAL_X_LIMIT)
             # ax.set_xlim(_GLOBAL_X_LIMIT)
 
-        ax.legend(legendlist, numpoints=4, fontsize=8)
+        ax.legend(legendlist, numpoints=4)
         # text coords: x, y
         ax.text(
             0.01,
@@ -210,19 +209,6 @@ class PlotDuration(Plot):
             f"{context_descr} {title} {metricname} {self._linlog} {descr_suffix}"
         )
 
-    def plot_mpl_singlefig(self):
-        log.info("plot_mpl_singlefig: for build duration")
-        fig = plt.figure()
-        ax = plt.gca()
-
-        self._plot_mpl_core(ax)
-        if self.ylog:
-            self._mutate_cur_mpl_ax_to_logscale()
-
-        plt.tight_layout(rect=(0, 0, 1, 0.95))
-        figure_filepath = self._savefig_mpl(fig, self._savefig_title)
-        return fig, figure_filepath
-
     def _plot_mpl_core(self, ax):
 
         log.info("_plot_mpl_core: ax: %s", id(ax))
@@ -247,7 +233,7 @@ class PlotDuration(Plot):
             median.plot(
                 linestyle="solid",
                 dash_capstyle="round",
-                color="black",
+                color="#666666",
                 linewidth=1.3,
                 zorder=10,
             )
@@ -294,9 +280,14 @@ class PlotDuration(Plot):
             color="#666666",
         )
 
-        log.info("_plot_mpl_core END: ax: %s", id(ax))
+        log.debug("_plot_mpl_core END: ax: %s", id(ax))
 
-        ax.legend(legendlist, numpoints=4, fontsize=8)
+        ax.legend(legendlist, numpoints=4)
+
+        if self.ylog:
+            # untested so far
+            self._mutate_cur_mpl_ax_to_logscale()
+
         return median, ax
 
     def _mutate_cur_mpl_ax_to_logscale(self):
@@ -339,6 +330,7 @@ def matplotlib_config():
     matplotlib.rcParams["xtick.labelsize"] = 6
     matplotlib.rcParams["ytick.labelsize"] = 6
     matplotlib.rcParams["axes.labelsize"] = 10
+    matplotlib.rcParams["legend.fontsize"] = 6
     matplotlib.rcParams["figure.figsize"] = [10.0, 4.2]
     matplotlib.rcParams["figure.dpi"] = 100
     matplotlib.rcParams["savefig.dpi"] = 190
