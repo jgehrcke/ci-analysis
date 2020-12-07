@@ -41,75 +41,6 @@ log = logging.getLogger(__name__)
 
 _GLOBAL_X_LIMIT = None
 
-# _AX_OBJS = []
-
-
-# def show_ax_objs_info():
-#     for i, ax_serialized in enumerate(_AX_OBJS, 1):
-#         log.info("ax %s size bytes: %s", i, len(ax_serialized))
-
-
-# def subplots_from_axs_objs():
-
-#     n_rows = len(_AX_OBJS)
-#     new_fig = plt.figure()
-#     new_axs = new_fig.subplots(n_rows, 1, sharex=True)
-
-#     for old_ax_serialized, new_axs in zip(_AX_OBJS, new_axs):
-#         old_ax = pickle.loads(old_ax_serialized)
-#         move_axes(old_ax, new_fig, new_axs)
-
-#     # Align the subplots a little nicer, make more use of space. `hspace`: The
-#     # amount of height reserved for space between subplots, expressed as a
-#     # fraction of the average axis height
-#     # plt.subplots_adjust(hspace=0.05, left=0.05, right=0.97, bottom=0.1, top=0.95)
-#     plt.show()
-
-
-# def new_figure_shunt(**kwargs):
-#     ...
-
-
-# def move_axes(old_ax, new_fig, new_ax_placeholder):
-
-#     # get a reference to the old figure context so we can release it
-#     old_fig = old_ax.figure
-
-#     # remove the Axes from it's original Figure context
-#     old_ax.remove()
-
-#     # set the pointer from the Axes to the new figure
-#     old_ax.figure = new_fig
-
-#     # add the Axes to the registry of axes for the figure
-#     # new_fig.axes.append(old_ax)
-#     # twice, I don't know why...
-#     new_fig.add_axes(old_ax)
-
-#     old_ax.add_artist(new_fig)
-
-#     # then copy the relevant data from the dummy to the ax
-#     old_ax.set_position(new_ax_placeholder.get_position())
-#     new_ax_placeholder.remove()
-
-#     # close the figure the original axis was bound to
-#     plt.close(old_fig)
-
-_Y_LABEL_FONTSIZE = 9
-
-
-def set_x_limit_for_all_plots(lower, upper):
-    global _GLOBAL_X_LIMIT
-
-    log.info("set common x limits for plots: %s, %s", lower, upper)
-    _GLOBAL_X_LIMIT = (lower, upper)
-
-
-def get_axes_in_new_fig():
-    plt.figure()
-    # Add an axes to the current figure and make it the current axes.
-    ax = plt.axes()
-    return ax
 
 
 class Plot(ABC):
@@ -388,6 +319,20 @@ class PlotDuration(Plot):
 
         # https://github.com/pandas-dev/pandas/issues/2010
         ax.set_xlim(ax.get_xlim()[0] - 1, ax.get_xlim()[1] + 1)
+
+
+def set_x_limit_for_all_plots(lower, upper):
+    global _GLOBAL_X_LIMIT
+
+    log.info("set common x limits for plots: %s, %s", lower, upper)
+    _GLOBAL_X_LIMIT = (lower, upper)
+
+
+# def get_axes_in_new_fig():
+#     plt.figure()
+#     # Add an axes to the current figure and make it the current axes.
+#     ax = plt.axes()
+#     return ax
 
 
 def matplotlib_config():
