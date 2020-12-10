@@ -40,24 +40,27 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
     )
 
     # Each sample/item in the series corresponds to one event. The index value
-    # is the datetime of the event (build), with a resolution of 1 second.
-    # Multiple events per second are rare, but to be expected. Get the number
-    # of events for any given second (group by index value, and get the group
-    # size for each unique index value).
+    # is the datetime of the event (build), with a resolution of 1 second
+    # (assumption about input). Multiple events per second are rare, but to be
+    # expected: hence, get the number of events for any given second (group by
+    # index value, and get the group size for each unique index value).
     eventcountseries = series.groupby(series.index).size()
 
     # Rename to `e` for the following transformations.
     e = eventcountseries
 
-    log.info("event count series (1 s resolution, gaps):")
+    log.info("raw event count series (raw series.groupby(series.index).size()):")
     print(e)
 
     n_minute_bins = 60
     log.info("downsample series into %s-minute bins", n_minute_bins)
     # Downsample the series into N-minute bins and sum the values falling into
-    # a bin (counting the number of 'events' in this bin).
+    # a bin (counting the number of 'events' in this bin). Note(double-check,
+    # but I think that's right): after this, the minimal time difference
+    # between adjacent data points is `n_minute`s, and the maximal one is
+    # unknown (can be large, this does not fill gaps).
     e = e.resample(f"{n_minute_bins}min").sum()
-    print(e)
+    # print(e)
 
     # The 'resample' before is not expected to upsample, just downsample. That
     # is, the resulting time index is expected to have gaps (where no events
@@ -87,15 +90,17 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
 
     # In the resulting Series object, the request rate value is assigned to the
     # right window boundary index value (i.e. to the newest timestamp in the
-    # window). For presentation it is more convenient to have it assigned
-    # (approximately) to the temporal center of the time window. That makes
-    # sense for intuitive data interpretation of a single rolling window time
-    # series, but is essential for meaningful presentation of multiple rolling
-    # window series in the same plot (when their window width varies). Invoking
-    # `rolling(..., center=True)` however yields `NotImplementedError: center
-    # is not implemented for datetimelike and offset based windows`. As a
-    # workaround, shift the data by half the window size to 'the left': shift
-    # the timestamp index by a constant / offset.
+    # window). For presentation and symmetry it is convenient and correct to
+    # have it assigned (approximately) to the temporal center of the time
+    # window. That makes sense for intuitive data interpretation of a single
+    # rolling window time series, but is essential for meaningful presentation
+    # of multiple rolling window series in the same plot -- keeping the
+    # symmetry of original data is especially important when doing long term
+    # analysis, with wide time windows with varying window width varies.
+    # However: invoking `rolling(..., center=True)` however yields
+    # `NotImplementedError: center is not implemented for datetimelike and
+    # offset based windows`. As a workaround, shift the data by half the window
+    # size to 'the left': shift the timestamp index by a constant / offset.
     offset = pd.DateOffset(seconds=window_width_seconds / 2.0)
     rolling_event_rate_d.index = rolling_event_rate_d.index - offset
 
@@ -106,14 +111,18 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
     # systematically to small. Because by now the time series has one sample
     # per `n_minute_bins` minute, the number of leftmost samples with a bad
     # result corresponds to `int(window_width_seconds / (n_minute_bins * 60))`.
+    # TODO: review this calc :)
     rolling_event_rate_d = rolling_event_rate_d[
         int(window_width_seconds / (n_minute_bins * 60)) :
     ]
+    print(rolling_event_rate_d)
 
-    # Forward-fill the last value up to "now" (for "today", it makse sense to
-    # plot the average ... of the last N days). It's symmetry-breaking for the
-    # entire time window, therefore the shift above -- but for today, it makes
-    # sense to look at the value, and plot it.
+    # Forward-fill the last value up to the last point in time of the original
+    # time series (the newest data point in the rolling time window series
+    # should be half a time window width older than that) -- that would be the
+    # same as "plotting the window aggregate to the right edge of the window",
+    # just that we didn't want to do so for the entire data interval (for
+    # symmetry reasons, see above).
     apdx_last_value = rolling_event_rate_d.iloc[-1]
 
     # print(rolling_event_rate_d.index.max())
