@@ -29,7 +29,12 @@ import pandas as pd
 log = logging.getLogger(__name__)
 
 
-def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
+def calc_rolling_event_rate(
+    series,
+    window_width_seconds,
+    upsample_with_zeros=False,
+    upsample_with_zeros_until=None,
+):
     """
     Require that Series index is a timestamp index.
     http://pandas.pydata.org/pandas-docs/version/0.19.2/api.html#window
@@ -64,13 +69,39 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
 
     # The 'resample' before is not expected to upsample, just downsample. That
     # is, the resulting time index is expected to have gaps (where no events
-    # occur in a time interval larger than a second), Up-sample the time index
-    # to fill these gaps, with 1s resolution and fill the missing values with
-    # zeros. If desired.
-    if upsample:
+    # occur in a time interval wider than the bin width above), Up-sample the
+    # time index to fill these gaps, with a certain desired resolution and fill
+    # the missing values with zeros. If desired.
+    if upsample_with_zeros:
+        if upsample_with_zeros_until is not None:
+            if not series.index.max() < upsample_with_zeros_until:
+                log.error(
+                    "calc_rolling_event_rate: last data point in series (%s) "
+                    + " is newer than upsample_with_zeros_until (%s)",
+                    series.index.max(),
+                    upsample_with_zeros_until,
+                )
+                raise Exception("calc_rolling_event_rate: bad input (see error above)")
+
+            # Construct additional data point as Series with 1 row.
+            dp = pd.Series([0], index=[upsample_with_zeros_until])
+            log.info("add data point to event count series: %s", dp)
+            print(f"e before: {e}")
+            e = e.append(dp)
+            print(f"e after: {e}")
+            # Example state after this extension: last to samples in `e`:
+            #    2020-12-07 12:00:00+00:00    4
+            #    2020-12-10 08:00:01+00:00    0
+
         log.info("upsample series (%s-minute bins) to fill gips, with 0", n_minute_bins)
         e = e.asfreq(f"{n_minute_bins}min", fill_value=0)
-        print(e)
+        # print(e)
+
+    # Store point in time of newest data point in timeseries, needed later.
+    # Note that this might be newer than the original `series.index.max()`, if
+    # there was a `upsample_with_zeros_until`-based extension.
+    datetime_newest_datapoint = e.index.max()
+    log.info("newest data point in event count series: %s", datetime_newest_datapoint)
 
     # Construct Window object using `df.rolling()` whereas a time offset string
     # defines the rolling window width in seconds. Require N samples to be in
@@ -126,10 +157,10 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
     apdx_last_value = rolling_event_rate_d.iloc[-1]
 
     # print(rolling_event_rate_d.index.max())
-    now = pd.Timestamp.now(tz=timezone.utc)
+    # now = pd.Timestamp.now(tz=timezone.utc)
     apdx_index = pd.date_range(
         start=rolling_event_rate_d.index.max(),
-        end=now,
+        end=datetime_newest_datapoint,
         freq=f"{n_minute_bins}min",
     )
     apdx_series = pd.Series([apdx_last_value] * len(apdx_index), index=apdx_index)
@@ -138,7 +169,7 @@ def calc_rolling_event_rate(series, window_width_seconds, upsample=False):
 
     log.info(
         "rolling_event_rate_d: forward-fill to %s with last value %s",
-        now,
+        datetime_newest_datapoint,
         apdx_last_value,
     )
     rolling_event_rate_d = rolling_event_rate_d.append(apdx_series)
