@@ -171,13 +171,21 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
         df_all.index.to_series(), window_width_seconds=86400 * window_width_days
     )
 
-    # Passed builds: upsample/fill gaps with 0, so that the following
-    # passed/all division shows stability '0' when build_rate_all is non-NaN
+    # Passed builds: fill gaps with 0 (upsample), so that the following
+    # passed/all division shows stability '0' when build_rate_all is non-NaN.
+    # Also: the last (newest) data point in passed builds might be older than
+    # the newest data point in all builds (when the _actual last build_
+    # failed!). In that case, forward-fill (extend) the "passed build" time
+    # series into the future up to the time of the last passed build. (fill
+    # with 0 into the future if `rolling_build_rate_all` has newer data points
+    # than the newest one in `df_passed`).
     rolling_build_rate_passed = analysis.calc_rolling_event_rate(
         df_passed.index.to_series(),
         window_width_seconds=86400 * window_width_days,
-        upsample=True,
+        upsample_with_zeros=True,
+        upsample_with_zeros_until=rolling_build_rate_all.index.max(),  # or take the newest original dp from df_passed?
     )
+
     rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
     p = plot.PlotStability(
         rolling_window_stability=rolling_window_stability,

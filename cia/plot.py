@@ -137,9 +137,20 @@ class PlotBuildrate(Plot):
             # samples (expose via cli arg).
             legendlist.append(f"{descr}, rolling window mean ({self.wwd} days)")
 
-            rolling_build_rate = analysis.calc_rolling_event_rate(
-                df.index.to_series(), window_width_seconds=86400 * self.wwd
-            )
+            # special-case: rely on "all builds" key to exist; treat that
+            # time series differently from all others: assume that all others
+            # are, each, a subset of all builds.
+            if descr == "all builds":
+                rolling_build_rate = analysis.calc_rolling_event_rate(
+                    df.index.to_series(), window_width_seconds=86400 * self.wwd
+                )
+            else:
+                rolling_build_rate = analysis.calc_rolling_event_rate(
+                    df.index.to_series(),
+                    window_width_seconds=86400 * self.wwd,
+                    upsample_with_zeros=True,
+                    upsample_with_zeros_until=self.builds_map["all builds"].index.max(),
+                )
 
             log.info("Plot build rate: window width (days): %s", self.wwd)
 
