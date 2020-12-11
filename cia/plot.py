@@ -172,7 +172,7 @@ class PlotBuildrate(Plot):
 
         if _GLOBAL_X_LIMIT:
             log.info("plot: set global xlim: %s", _GLOBAL_X_LIMIT)
-            # ax.set_xlim(_GLOBAL_X_LIMIT)
+            ax.set_xlim(_GLOBAL_X_LIMIT)
 
         ax.legend(legendlist, numpoints=4)
         # text coords: x, y
@@ -280,6 +280,10 @@ class PlotDuration(Plot):
         if _GLOBAL_X_LIMIT is not None:
             log.info("duration plot: set global xlim: %s", _GLOBAL_X_LIMIT)
             ax.set_xlim(_GLOBAL_X_LIMIT)
+
+        # To put the duration into perspective: make sure to show the lower
+        # end, the zero, by default. Maybe do a common y max limit alter.
+        ax.set_ylim((0, ax.get_ylim()[1] * 1.2))
 
         if self.xlabel is None:
             ax.set_xlabel("build start time", fontsize=10)
