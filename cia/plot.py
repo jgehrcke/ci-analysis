@@ -129,6 +129,9 @@ class PlotBuildrate(Plot):
     def _plot_mpl_core(self, ax):
         legendlist = []
 
+        log.info(
+            "\n\nPlotBuildrate._plot_mpl_core() for %s", list(self.builds_map.keys())
+        )
         for descr, df in self.builds_map.items():
             log.info("analyze build rate: %s", descr)
             # Analysis and plots for entire pipeline, for passed builds.
@@ -141,10 +144,12 @@ class PlotBuildrate(Plot):
             # time series differently from all others: assume that all others
             # are, each, a subset of all builds.
             if descr == "all builds":
+                log.info("\n\ncalc_rolling_event_rate() for all builds")
                 rolling_build_rate = analysis.calc_rolling_event_rate(
                     df.index.to_series(), window_width_seconds=86400 * self.wwd
                 )
             else:
+                log.info("\n\ncalc_rolling_event_rate() for subset of all builds")
                 rolling_build_rate = analysis.calc_rolling_event_rate(
                     df.index.to_series(),
                     window_width_seconds=86400 * self.wwd,

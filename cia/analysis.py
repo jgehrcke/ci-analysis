@@ -157,7 +157,7 @@ def calc_rolling_event_rate(
     rolling_event_rate_d = rolling_event_rate_d[
         int(window_width_seconds / (n_minute_bins * 60)) :
     ]
-    print(rolling_event_rate_d)
+    # print(rolling_event_rate_d)
 
     # Forward-fill the last value up to the last point in time of the original
     # time series (the newest data point in the rolling time window series
@@ -175,8 +175,8 @@ def calc_rolling_event_rate(
         freq=f"{n_minute_bins}min",
     )
     apdx_series = pd.Series([apdx_last_value] * len(apdx_index), index=apdx_index)
-    print(apdx_index)
-    print(apdx_series)
+    # print(apdx_index)
+    # print(apdx_series)
 
     log.info(
         "rolling_event_rate_d: forward-fill to %s with last value %s",
@@ -205,6 +205,6 @@ def calc_rolling_event_rate(
     # https://github.com/pandas-dev/pandas/issues/22586
     rolling_event_rate_d.index = rolling_event_rate_d.index + pd.to_timedelta("1 sec")
 
-    print(rolling_event_rate_d)
+    # print(rolling_event_rate_d)
 
     return rolling_event_rate_d

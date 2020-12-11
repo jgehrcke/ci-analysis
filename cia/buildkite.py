@@ -160,7 +160,7 @@ def set_common_x_limit_for_plotting(builds_all):
 
 def analyze_build_stability(builds_all, builds_passed, window_width_days):
     log.info(
-        "perform build stability analysis (from all builds, passed builds) -- window_width_days: %s",
+        "\n\nperform build stability analysis (from all builds, passed builds) -- window_width_days: %s",
         window_width_days,
     )
 
@@ -179,6 +179,8 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
     # series into the future up to the time of the last passed build. (fill
     # with 0 into the future if `rolling_build_rate_all` has newer data points
     # than the newest one in `df_passed`).
+    log.info("calc_rolling_event_rate() for passed builds")
+    log.info("")
     rolling_build_rate_passed = analysis.calc_rolling_event_rate(
         df_passed.index.to_series(),
         window_width_seconds=86400 * window_width_days,
