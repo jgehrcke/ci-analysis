@@ -129,6 +129,9 @@ class PlotBuildrate(Plot):
     def _plot_mpl_core(self, ax):
         legendlist = []
 
+        log.info(
+            "\n\nPlotBuildrate._plot_mpl_core() for %s", list(self.builds_map.keys())
+        )
         for descr, df in self.builds_map.items():
             log.info("analyze build rate: %s", descr)
             # Analysis and plots for entire pipeline, for passed builds.
@@ -141,10 +144,12 @@ class PlotBuildrate(Plot):
             # time series differently from all others: assume that all others
             # are, each, a subset of all builds.
             if descr == "all builds":
+                log.info("\n\ncalc_rolling_event_rate() for all builds")
                 rolling_build_rate = analysis.calc_rolling_event_rate(
                     df.index.to_series(), window_width_seconds=86400 * self.wwd
                 )
             else:
+                log.info("\n\ncalc_rolling_event_rate() for subset of all builds")
                 rolling_build_rate = analysis.calc_rolling_event_rate(
                     df.index.to_series(),
                     window_width_seconds=86400 * self.wwd,
@@ -172,7 +177,7 @@ class PlotBuildrate(Plot):
 
         if _GLOBAL_X_LIMIT:
             log.info("plot: set global xlim: %s", _GLOBAL_X_LIMIT)
-            # ax.set_xlim(_GLOBAL_X_LIMIT)
+            ax.set_xlim(_GLOBAL_X_LIMIT)
 
         ax.legend(legendlist, numpoints=4)
         # text coords: x, y
@@ -280,6 +285,10 @@ class PlotDuration(Plot):
         if _GLOBAL_X_LIMIT is not None:
             log.info("duration plot: set global xlim: %s", _GLOBAL_X_LIMIT)
             ax.set_xlim(_GLOBAL_X_LIMIT)
+
+        # To put the duration into perspective: make sure to show the lower
+        # end, the zero, by default. Maybe do a common y max limit alter.
+        ax.set_ylim((0, ax.get_ylim()[1] * 1.2))
 
         if self.xlabel is None:
             ax.set_xlabel("build start time", fontsize=10)

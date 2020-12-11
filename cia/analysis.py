@@ -74,24 +74,35 @@ def calc_rolling_event_rate(
     # the missing values with zeros. If desired.
     if upsample_with_zeros:
         if upsample_with_zeros_until is not None:
-            if not series.index.max() < upsample_with_zeros_until:
+            if series.index.max() == upsample_with_zeros_until:
+                log.info(
+                    "calc_rolling_event_rate: last data point in series (%s) "
+                    + "is equal to upsample_with_zeros_until (%s) -- skip",
+                    series.index.max(),
+                    upsample_with_zeros_until,
+                )
+            elif series.index.max() > upsample_with_zeros_until:
                 log.error(
                     "calc_rolling_event_rate: last data point in series (%s) "
-                    + " is newer than upsample_with_zeros_until (%s)",
+                    + "is newer than upsample_with_zeros_until (%s)",
                     series.index.max(),
                     upsample_with_zeros_until,
                 )
                 raise Exception("calc_rolling_event_rate: bad input (see error above)")
 
-            # Construct additional data point as Series with 1 row.
-            dp = pd.Series([0], index=[upsample_with_zeros_until])
-            log.info("add data point to event count series: %s", dp)
-            print(f"e before: {e}")
-            e = e.append(dp)
-            print(f"e after: {e}")
-            # Example state after this extension: last to samples in `e`:
-            #    2020-12-07 12:00:00+00:00    4
-            #    2020-12-10 08:00:01+00:00    0
+            else:
+                # Construct additional data point as Series with 1 row.
+                dp = pd.Series([0], index=[upsample_with_zeros_until])
+                log.info(
+                    "upsample_with_zeros_until mechanism: add data point to event count series: %s",
+                    dp,
+                )
+                # print(f"e before: {e}")
+                e = e.append(dp)
+                # print(f"e after: {e}")
+                # Example state after this extension: last to samples in `e`:
+                #    2020-12-07 12:00:00+00:00    4
+                #    2020-12-10 08:00:01+00:00    0
 
         log.info("upsample series (%s-minute bins) to fill gips, with 0", n_minute_bins)
         e = e.asfreq(f"{n_minute_bins}min", fill_value=0)
@@ -146,7 +157,7 @@ def calc_rolling_event_rate(
     rolling_event_rate_d = rolling_event_rate_d[
         int(window_width_seconds / (n_minute_bins * 60)) :
     ]
-    print(rolling_event_rate_d)
+    # print(rolling_event_rate_d)
 
     # Forward-fill the last value up to the last point in time of the original
     # time series (the newest data point in the rolling time window series
@@ -164,8 +175,8 @@ def calc_rolling_event_rate(
         freq=f"{n_minute_bins}min",
     )
     apdx_series = pd.Series([apdx_last_value] * len(apdx_index), index=apdx_index)
-    print(apdx_index)
-    print(apdx_series)
+    # print(apdx_index)
+    # print(apdx_series)
 
     log.info(
         "rolling_event_rate_d: forward-fill to %s with last value %s",
@@ -194,6 +205,6 @@ def calc_rolling_event_rate(
     # https://github.com/pandas-dev/pandas/issues/22586
     rolling_event_rate_d.index = rolling_event_rate_d.index + pd.to_timedelta("1 sec")
 
-    print(rolling_event_rate_d)
+    # print(rolling_event_rate_d)
 
     return rolling_event_rate_d

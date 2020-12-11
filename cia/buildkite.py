@@ -80,6 +80,7 @@ def main():
     )
     p.plot_mpl_singlefig()
     _PLOTS_FOR_SUBPLOTS.append(p)
+
     analyze_build_stability(builds_all, builds_passed, window_width_days=4)
 
     analyze_passed_builds(builds_all)
@@ -97,7 +98,8 @@ def create_summary_fig_with_subplots():
     n_rows = len(_PLOTS_FOR_SUBPLOTS)
     fig = plt.figure()
 
-    fig.set_size_inches(1.5 * n_rows, 11)
+    # w, h
+    fig.set_size_inches(10, 1.5 * n_rows)
 
     log.info("create figure with subplots for these:")
     for p in _PLOTS_FOR_SUBPLOTS:
@@ -160,15 +162,23 @@ def set_common_x_limit_for_plotting(builds_all):
 
 def analyze_build_stability(builds_all, builds_passed, window_width_days):
     log.info(
-        "perform build stability analysis (from all builds, passed builds) -- window_width_days: %s",
+        "\n\nperform build stability analysis (from all builds, passed builds) -- window_width_days: %s",
         window_width_days,
     )
 
     df_all = construct_df_for_builds(builds_all)
     df_passed = construct_df_for_builds(builds_passed)
 
+    df_passed_timestamp_series = df_passed.index.to_series()
+    df_all_timestamp_series = df_all.index.to_series()
+
+    log.info(
+        "timestamp of last passed build: %s", df_passed_timestamp_series.index.max()
+    )
+    log.info("timestamp of last build: %s", df_all_timestamp_series.index.max())
+
     rolling_build_rate_all = analysis.calc_rolling_event_rate(
-        df_all.index.to_series(), window_width_seconds=86400 * window_width_days
+        df_all_timestamp_series, window_width_seconds=86400 * window_width_days
     )
 
     # Passed builds: fill gaps with 0 (upsample), so that the following
@@ -179,11 +189,13 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
     # series into the future up to the time of the last passed build. (fill
     # with 0 into the future if `rolling_build_rate_all` has newer data points
     # than the newest one in `df_passed`).
+    log.info("calc_rolling_event_rate() for passed builds")
+    log.info("")
     rolling_build_rate_passed = analysis.calc_rolling_event_rate(
-        df_passed.index.to_series(),
+        df_passed_timestamp_series,
         window_width_seconds=86400 * window_width_days,
         upsample_with_zeros=True,
-        upsample_with_zeros_until=rolling_build_rate_all.index.max(),  # or take the newest original dp from df_passed?
+        upsample_with_zeros_until=df_passed_timestamp_series.index.max(),
     )
 
     rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
@@ -472,7 +484,10 @@ def load_all_builds(orgslug, pipelineslug, states):
 
     log.info("loaded %s builds from disk", len(builds_cached))
 
-    skip_if_newer_than_mins = 300
+    # tmp: use current cache state, interesting data state
+    # return builds_cached
+
+    skip_if_newer_than_mins = 60
     cache_age_minutes = (time.time() - os.stat(cache_filepath).st_mtime) / 60.0
     if cache_age_minutes < skip_if_newer_than_mins:
         log.info("skip remote fetch: cache written %.1f minutes ago", cache_age_minutes)
