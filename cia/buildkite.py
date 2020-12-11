@@ -475,7 +475,10 @@ def load_all_builds(orgslug, pipelineslug, states):
 
     log.info("loaded %s builds from disk", len(builds_cached))
 
-    skip_if_newer_than_mins = 300
+    # tmp: use current cache state, interesting data state
+    # return builds_cached
+
+    skip_if_newer_than_mins = 60
     cache_age_minutes = (time.time() - os.stat(cache_filepath).st_mtime) / 60.0
     if cache_age_minutes < skip_if_newer_than_mins:
         log.info("skip remote fetch: cache written %.1f minutes ago", cache_age_minutes)
