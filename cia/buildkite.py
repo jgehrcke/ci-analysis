@@ -80,6 +80,7 @@ def main():
     )
     p.plot_mpl_singlefig()
     _PLOTS_FOR_SUBPLOTS.append(p)
+
     analyze_build_stability(builds_all, builds_passed, window_width_days=4)
 
     analyze_passed_builds(builds_all)
@@ -168,8 +169,16 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
     df_all = construct_df_for_builds(builds_all)
     df_passed = construct_df_for_builds(builds_passed)
 
+    df_passed_timestamp_series = df_passed.index.to_series()
+    df_all_timestamp_series = df_all.index.to_series()
+
+    log.info(
+        "timestamp of last passed build: %s", df_passed_timestamp_series.index.max()
+    )
+    log.info("timestamp of last build: %s", df_all_timestamp_series.index.max())
+
     rolling_build_rate_all = analysis.calc_rolling_event_rate(
-        df_all.index.to_series(), window_width_seconds=86400 * window_width_days
+        df_all_timestamp_series, window_width_seconds=86400 * window_width_days
     )
 
     # Passed builds: fill gaps with 0 (upsample), so that the following
@@ -183,7 +192,7 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
     log.info("calc_rolling_event_rate() for passed builds")
     log.info("")
     rolling_build_rate_passed = analysis.calc_rolling_event_rate(
-        df_passed.index.to_series(),
+        df_passed_timestamp_series,
         window_width_seconds=86400 * window_width_days,
         upsample_with_zeros=True,
         upsample_with_zeros_until=df_passed_timestamp_series.index.max(),
