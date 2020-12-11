@@ -183,7 +183,7 @@ def analyze_build_stability(builds_all, builds_passed, window_width_days):
         df_passed.index.to_series(),
         window_width_seconds=86400 * window_width_days,
         upsample_with_zeros=True,
-        upsample_with_zeros_until=rolling_build_rate_all.index.max(),  # or take the newest original dp from df_passed?
+        upsample_with_zeros_until=df_passed_timestamp_series.index.max(),
     )
 
     rolling_window_stability = rolling_build_rate_passed / rolling_build_rate_all
