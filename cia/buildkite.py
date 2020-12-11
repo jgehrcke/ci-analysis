@@ -97,7 +97,8 @@ def create_summary_fig_with_subplots():
     n_rows = len(_PLOTS_FOR_SUBPLOTS)
     fig = plt.figure()
 
-    fig.set_size_inches(1.5 * n_rows, 11)
+    # w, h
+    fig.set_size_inches(10, 1.5 * n_rows)
 
     log.info("create figure with subplots for these:")
     for p in _PLOTS_FOR_SUBPLOTS:
