@@ -203,6 +203,7 @@ def calc_rolling_event_rate(
     # https://github.com/pandas-dev/pandas/issues/18571
     # https://github.com/pandas-dev/pandas/issues/11574
     # https://github.com/pandas-dev/pandas/issues/22586
+    # maybe also look at the index.resolution property to make this systematic.
     rolling_event_rate_d.index = rolling_event_rate_d.index + pd.to_timedelta("1 sec")
 
     # print(rolling_event_rate_d)
