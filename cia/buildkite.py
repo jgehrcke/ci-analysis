@@ -472,7 +472,7 @@ def fetch_builds(orgslug, pipelineslug, states, only_newer_than_build_number=-1)
 
 def load_all_builds(orgslug, pipelineslug, states):
 
-    cache_filepath = "builds.pickle"
+    cache_filepath = f"{CFG().args.org}_{CFG().args.pipeline}.pickle.cache"
     builds_cached = utils.load_pickle_file_if_exists(cache_filepath)
 
     if builds_cached is None:
