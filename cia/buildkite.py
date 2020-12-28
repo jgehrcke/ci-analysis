@@ -28,6 +28,7 @@ import os
 import logging
 import sys
 import time
+import json
 from collections import Counter, defaultdict
 from datetime import datetime
 
@@ -326,14 +327,27 @@ def rewrite_build_objects(builds):
     for b in builds:
 
         for dtprop in ("created_at", "started_at", "scheduled_at", "finished_at"):
-            b[dtprop] = datetime.fromisoformat(b[dtprop].replace("Z", "+00:00"))
-
-        b["duration_seconds"] = (b["finished_at"] - b["started_at"]).total_seconds()
+            try:
+                b[dtprop] = datetime.fromisoformat(b[dtprop].replace("Z", "+00:00"))
+            except AttributeError:
+                # `started_at` may be null/None: build did not start (no free
+                # agent?) -> 'NoneType' object has no attribute 'replace'
+                continue
+        try:
+            b["duration_seconds"] = (b["finished_at"] - b["started_at"]).total_seconds()
+        except TypeError:
+            # unsupported operand type(s) for -: 'NoneType' and 'NoneType'
+            b["duration_seconds"] = None
 
         for j in b["jobs"]:
             # may want to be able to associate a job with a build again later
             # on. shortcut for now, can extract build number from build_url
             # later.
+            if j["type"] == "waiter":
+                # don't process these here, they look like this:
+                # {'id': 'bf10920b-b826-4ba5-9d77-fd58bd24a2dc', 'type': 'waiter'}
+                continue
+
             j["build_number"] = 1
 
             for dtprop in ("created_at", "started_at", "scheduled_at", "finished_at"):
@@ -344,6 +358,7 @@ def rewrite_build_objects(builds):
                     # `started_at` may be null/None: job did not start
                     # -> 'NoneType' object has no attribute 'replace'
                     continue
+
             try:
                 j["duration_seconds"] = (
                     j["finished_at"] - j["started_at"]
