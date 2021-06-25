@@ -63,6 +63,9 @@ def main():
     # Store this under "all", although these are technically already filtered
     builds_all = bfilter.filter_builds_based_on_build_time(builds_all)
 
+    build_numbers = sorted([b["number"] for b in builds_all])
+    log.info("build numbers: %s ... %s", build_numbers[0:5], build_numbers[-5:-1])
+
     set_common_x_limit_for_plotting(builds_all)
 
     plot.matplotlib_config()
@@ -216,6 +219,10 @@ def analyze_passed_builds(builds_all):
     builds = bfilter.filter_builds_passed(
         bfilter.filter_builds_based_on_duration(builds_all)
     )
+
+    # print(builds[-1])
+    # print(sorted([b["number"] for b in builds]))
+    # sys.exit()
 
     log.info("identify the set of step keys observed across builds")
     step_key_counter, jobs_by_key = identify_top_n_step_keys(builds, 7)
