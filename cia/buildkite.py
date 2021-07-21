@@ -220,16 +220,12 @@ def analyze_passed_builds(builds_all):
         bfilter.filter_builds_based_on_duration(builds_all)
     )
 
-    # print(builds[-1])
-    # print(sorted([b["number"] for b in builds]))
-    # sys.exit()
-
     log.info("identify the set of step keys observed across builds")
     step_key_counter, jobs_by_key = identify_top_n_step_keys(builds, 7)
 
-    # Analysis and plots for entire pipeline, for passed builds.
     df = construct_df_for_builds(builds)
 
+    # Duration plot for the entire pipeline
     p = plot.PlotDuration(
         df=df,
         context_descr=f"{CFG().args.org}/{CFG().args.pipeline} (passed)",
@@ -243,11 +239,27 @@ def analyze_passed_builds(builds_all):
     p.plot_mpl_singlefig()
     _PLOTS_FOR_SUBPLOTS.append(p)
 
-    # Generate a flat list containing all build jobs across all passed
-    # pipelines.
-
     # Analysis and plots for top N build steps.
-    for step_key, count in step_key_counter.most_common(3):
+    step_keys_to_plot = [sk for sk, _ in step_key_counter.most_common(3)]
+
+    # Optionally, don't automatically select the build steps to plot the
+    # duraiton for but read from cmdline args
+    custom_steps = CFG().args.multi_plot_add_step_duration
+    if custom_steps:
+        log.info(
+            "adding duration plots for these steps, based on cmdline args: %s",
+            custom_steps,
+        )
+        log.info("jobs by key: %s", set([k for k in jobs_by_key]))
+
+        seen_job_keys = set([k for k in jobs_by_key])
+
+        step_keys_to_plot = custom_steps
+        for k in step_keys_to_plot:
+            if k not in seen_job_keys:
+                sys.exit(f"not a valid job key: {k}")
+
+    for step_key in step_keys_to_plot:
         # Analysis and plots for a specific job key
         log.info("generate dataframe from list of jobs for step: %s", step_key)
         df_job = construct_df_for_jobs(jobs_by_key[step_key])
