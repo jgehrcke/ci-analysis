@@ -501,7 +501,9 @@ def fetch_builds(orgslug, pipelineslug, states, only_newer_than_build_number=-1)
             builds[-1]["number"],
         )
 
-    return builds
+    # Return reversed order of builds, i.e. from older to newer, so that this
+    # can be merged with cached builds by a simple list extend().
+    return list(reversed(builds))
 
 
 def load_all_builds(orgslug, pipelineslug, states):
@@ -521,14 +523,19 @@ def load_all_builds(orgslug, pipelineslug, states):
     # tmp: use current cache state, interesting data state
     # return builds_cached
 
-    skip_if_newer_than_mins = 60
+    skip_if_newer_than_mins = 0
     cache_age_minutes = (time.time() - os.stat(cache_filepath).st_mtime) / 60.0
     if cache_age_minutes < skip_if_newer_than_mins:
         log.info("skip remote fetch: cache written %.1f minutes ago", cache_age_minutes)
         return builds_cached
 
-    # rely on sort order!
-    newest_build_in_cache = builds_cached[0]
+    # Rely on sort order (newest build last!)
+    newest_build_in_cache = builds_cached[-1]
+
+    # Against a class of bugs, find the actual largest build number in the
+    # cached list of builds, and make sure it's for the build in position 0.
+    newest_build_in_cache["number"] == max([b["number"] for b in builds_cached])
+
     log.info("newest build number in cache: %s", newest_build_in_cache["number"])
     log.info("update (forward-fill)")
     new_builds = fetch_builds(
