@@ -169,16 +169,16 @@ class PlotBuildrate(Plot):
                 # ax=ax,
             )
 
-        log.info("symlog: set lower ylim to 0")
-        # Make sure to show the lower end, the zero, by default.
-        _prevmax = ax.get_ylim()[1]
-        ax.set_ylim((0, _prevmax * 1.4))
-        ax.set_yscale(
-            "symlog",
-            linthreshy=0.01,
-            linscaley=0.25,
-            subsy=[2, 3, 4, 5, 6, 7, 8, 9],
-        )
+        # log.info("symlog: set lower ylim to 0")
+        # # Make sure to show the lower end, the zero, by default.
+        # _prevmax = ax.get_ylim()[1]
+        # ax.set_ylim((0, _prevmax * 1.4))
+        # ax.set_yscale(
+        #     "symlog",
+        #     linthreshy=0.01,
+        #     linscaley=0.25,
+        #     subsy=[2, 3, 4, 5, 6, 7, 8, 9],
+        # )
 
         # ax.set_ylim((0, 10))
 
