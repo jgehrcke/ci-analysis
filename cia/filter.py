@@ -29,11 +29,14 @@ from .cfg import CFG
 log = logging.getLogger(__name__)
 
 
-def drop_builds_that_did_not_start(builds):
+def drop_builds_that_did_not_start_or_finish(builds):
     kept = []
     for b in builds:
         if b['started_at'] is None:
             log.info('build did not start, drop: %s', b['number'])
+            continue
+        if b['finished_at'] is None:
+            log.info('build did not finish, drop: %s', b['number'])
             continue
         kept.append(b)
     return kept
