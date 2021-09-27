@@ -28,7 +28,6 @@ import os
 import logging
 import sys
 import time
-import json
 from collections import Counter, defaultdict
 from datetime import datetime
 
@@ -151,10 +150,15 @@ def create_summary_fig_with_subplots():
     # plt.show()
 
 
-def set_common_x_limit_for_plotting(builds_all):
-    # Get earliest and latest builds (their "time")
-    # Rely on result df of this func to be sorted by time: past -> future
-    df = construct_df_for_builds(builds_all)
+def set_common_x_limit_for_plotting(builds):
+    # Get earliest and latest build.  Rely on result df of this func to be
+    # sorted by time: past -> future
+    df = construct_df_for_builds(builds)
+
+    log.info('common_x_limit_for_plotting -- df:\n%s', df)
+    log.info("common_x_limit_for_plotting -- df.index[0]: %s", df.index[0])
+    log.info("common_x_limit_for_plotting -- df.index[-1]: %s", df.index[-1])
+
     mintime_across_builds = df.index[0]
     maxtime_across_builds = df.index[-1]
     diff = maxtime_across_builds - mintime_across_builds
@@ -309,7 +313,8 @@ def construct_df_for_jobs(jobs):
 
 def construct_df_for_builds(builds, jobs=False, ignore_builds=None):
 
-    log.info("build pandas dataframe for passed builds")
+    log.info("build pandas dataframe for builds")
+
     df_dict = {
         "started_at": [b["started_at"] for b in builds],
         "build_number": [b["number"] for b in builds],
