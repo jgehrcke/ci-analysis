@@ -56,27 +56,27 @@ _PLOTS_FOR_SUBPLOTS = []
 
 def main():
 
-    builds_all = rewrite_build_objects(
+    builds = rewrite_build_objects(
         load_all_builds(CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED])
     )
 
-    # Store this under "all", although these are technically already filtered
-    builds_all = bfilter.filter_builds_based_on_build_time(builds_all)
 
-    build_numbers = sorted([b["number"] for b in builds_all])
+    builds = bfilter.filter_builds_based_on_build_time(builds)
+
+    build_numbers = sorted([b["number"] for b in builds])
     log.info("build numbers: %s ... %s", build_numbers[0:5], build_numbers[-5:-1])
 
-    set_common_x_limit_for_plotting(builds_all)
+    set_common_x_limit_for_plotting(builds)
 
     plot.matplotlib_config()
 
     builds_passed = bfilter.filter_builds_passed(
-        bfilter.filter_builds_based_on_duration(builds_all)
+        bfilter.filter_builds_based_on_duration(builds)
     )
 
     p = plot.PlotBuildrate(
         builds_map={
-            "all builds": construct_df_for_builds(builds_all),
+            "all builds": construct_df_for_builds(builds),
             "passed builds": construct_df_for_builds(builds_passed),
         },
         window_width_days=4,
@@ -85,9 +85,9 @@ def main():
     p.plot_mpl_singlefig()
     _PLOTS_FOR_SUBPLOTS.append(p)
 
-    analyze_build_stability(builds_all, builds_passed, window_width_days=4)
+    analyze_build_stability(builds, builds_passed, window_width_days=4)
 
-    analyze_passed_builds(builds_all)
+    analyze_passed_builds(builds)
 
     create_summary_fig_with_subplots()
 
