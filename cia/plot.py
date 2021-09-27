@@ -320,7 +320,7 @@ class PlotDuration(Plot):
 
         log.debug("_plot_mpl_core END: ax: %s", id(ax))
 
-        ax.legend(legendlist, numpoints=4)
+        ax.legend(legendlist, numpoints=4, loc='upper left')
 
         if self.ylog:
             # untested so far
