@@ -28,7 +28,6 @@ import os
 import logging
 import sys
 import time
-import json
 from collections import Counter, defaultdict
 from datetime import datetime
 
@@ -56,27 +55,28 @@ _PLOTS_FOR_SUBPLOTS = []
 
 def main():
 
-    builds_all = rewrite_build_objects(
+    builds = rewrite_build_objects(
         load_all_builds(CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED])
     )
 
-    # Store this under "all", although these are technically already filtered
-    builds_all = bfilter.filter_builds_based_on_build_time(builds_all)
+    builds = bfilter.drop_builds_that_did_not_start_or_finish(builds)
 
-    build_numbers = sorted([b["number"] for b in builds_all])
+    builds = bfilter.filter_builds_based_on_build_time(builds)
+
+    build_numbers = sorted([b["number"] for b in builds])
     log.info("build numbers: %s ... %s", build_numbers[0:5], build_numbers[-5:-1])
 
-    set_common_x_limit_for_plotting(builds_all)
+    set_common_x_limit_for_plotting(builds)
 
     plot.matplotlib_config()
 
     builds_passed = bfilter.filter_builds_passed(
-        bfilter.filter_builds_based_on_duration(builds_all)
+        bfilter.filter_builds_based_on_duration(builds)
     )
 
     p = plot.PlotBuildrate(
         builds_map={
-            "all builds": construct_df_for_builds(builds_all),
+            "all builds": construct_df_for_builds(builds),
             "passed builds": construct_df_for_builds(builds_passed),
         },
         window_width_days=4,
@@ -85,9 +85,9 @@ def main():
     p.plot_mpl_singlefig()
     _PLOTS_FOR_SUBPLOTS.append(p)
 
-    analyze_build_stability(builds_all, builds_passed, window_width_days=4)
+    analyze_build_stability(builds, builds_passed, window_width_days=4)
 
-    analyze_passed_builds(builds_all)
+    analyze_passed_builds(builds)
 
     create_summary_fig_with_subplots()
 
@@ -150,10 +150,15 @@ def create_summary_fig_with_subplots():
     # plt.show()
 
 
-def set_common_x_limit_for_plotting(builds_all):
-    # Get earliest and latest builds (their "time")
-    # Rely on result df of this func to be sorted by time: past -> future
-    df = construct_df_for_builds(builds_all)
+def set_common_x_limit_for_plotting(builds):
+    # Get earliest and latest build.  Rely on result df of this func to be
+    # sorted by time: past -> future
+    df = construct_df_for_builds(builds)
+
+    log.info('common_x_limit_for_plotting -- df:\n%s', df)
+    log.info("common_x_limit_for_plotting -- df.index[0]: %s", df.index[0])
+    log.info("common_x_limit_for_plotting -- df.index[-1]: %s", df.index[-1])
+
     mintime_across_builds = df.index[0]
     maxtime_across_builds = df.index[-1]
     diff = maxtime_across_builds - mintime_across_builds
@@ -308,7 +313,8 @@ def construct_df_for_jobs(jobs):
 
 def construct_df_for_builds(builds, jobs=False, ignore_builds=None):
 
-    log.info("build pandas dataframe for passed builds")
+    log.info("build pandas dataframe for builds")
+
     df_dict = {
         "started_at": [b["started_at"] for b in builds],
         "build_number": [b["number"] for b in builds],

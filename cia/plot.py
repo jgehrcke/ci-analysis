@@ -40,8 +40,8 @@ log = logging.getLogger(__name__)
 
 _GLOBAL_X_LIMIT = None
 _Y_LABEL_FONTSIZE = 7
-_CONTEXT_LABEL_FONTSIZE = 7
-
+_CONTEXT_LABEL_FONTSIZE = 6
+_CONTEXT_LABEL_FONTCOLOR = "#444444"
 
 class Plot(ABC):
 
@@ -114,9 +114,9 @@ class PlotStability(Plot):
             self.context_descr,
             fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
-            color="#666666",
+            color=_CONTEXT_LABEL_FONTCOLOR,
         )
-        ax.set_ylim(0, 1.15)
+        ax.set_ylim(-0.15, 1.15)
 
 
 class PlotBuildrate(Plot):
@@ -200,7 +200,7 @@ class PlotBuildrate(Plot):
             self.context_descr,
             fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
-            color="#666666",
+            color=_CONTEXT_LABEL_FONTCOLOR,
         )
 
 
@@ -301,7 +301,7 @@ class PlotDuration(Plot):
 
         # To put the duration into perspective: make sure to show the lower
         # end, the zero, by default. Maybe do a common y max limit alter.
-        ax.set_ylim((0, ax.get_ylim()[1] * 1.2))
+        ax.set_ylim((-0.09, ax.get_ylim()[1] * 1.2))
 
         if self.xlabel is None:
             ax.set_xlabel("build start time", fontsize=10)
@@ -311,16 +311,16 @@ class PlotDuration(Plot):
         # text coords: x, y
         ax.text(
             0.01,
-            0.04,
+            0.05,
             self.context_descr,
             fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
-            color="#666666",
+            color=_CONTEXT_LABEL_FONTCOLOR,
         )
 
         log.debug("_plot_mpl_core END: ax: %s", id(ax))
 
-        ax.legend(legendlist, numpoints=4)
+        ax.legend(legendlist, numpoints=4, loc='upper left')
 
         if self.ylog:
             # untested so far
