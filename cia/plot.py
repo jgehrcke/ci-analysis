@@ -311,7 +311,7 @@ class PlotDuration(Plot):
         # text coords: x, y
         ax.text(
             0.01,
-            0.04,
+            0.05,
             self.context_descr,
             fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
