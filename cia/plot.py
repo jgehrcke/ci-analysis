@@ -40,8 +40,8 @@ log = logging.getLogger(__name__)
 
 _GLOBAL_X_LIMIT = None
 _Y_LABEL_FONTSIZE = 7
-_CONTEXT_LABEL_FONTSIZE = 7
-
+_CONTEXT_LABEL_FONTSIZE = 6
+_CONTEXT_LABEL_FONTCOLOR = "#444444"
 
 class Plot(ABC):
 
@@ -114,7 +114,7 @@ class PlotStability(Plot):
             self.context_descr,
             fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
-            color="#666666",
+            color=_CONTEXT_LABEL_FONTCOLOR,
         )
         ax.set_ylim(0, 1.15)
 
@@ -200,7 +200,7 @@ class PlotBuildrate(Plot):
             self.context_descr,
             fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
-            color="#666666",
+            color=_CONTEXT_LABEL_FONTCOLOR,
         )
 
 
@@ -315,7 +315,7 @@ class PlotDuration(Plot):
             self.context_descr,
             fontsize=_CONTEXT_LABEL_FONTSIZE,
             transform=ax.transAxes,
-            color="#666666",
+            color=_CONTEXT_LABEL_FONTCOLOR,
         )
 
         log.debug("_plot_mpl_core END: ax: %s", id(ax))
