@@ -116,7 +116,7 @@ class PlotStability(Plot):
             transform=ax.transAxes,
             color=_CONTEXT_LABEL_FONTCOLOR,
         )
-        ax.set_ylim(0, 1.15)
+        ax.set_ylim(-0.15, 1.15)
 
 
 class PlotBuildrate(Plot):
@@ -301,7 +301,7 @@ class PlotDuration(Plot):
 
         # To put the duration into perspective: make sure to show the lower
         # end, the zero, by default. Maybe do a common y max limit alter.
-        ax.set_ylim((0, ax.get_ylim()[1] * 1.2))
+        ax.set_ylim((-0.09, ax.get_ylim()[1] * 1.2))
 
         if self.xlabel is None:
             ax.set_xlabel("build start time", fontsize=10)
