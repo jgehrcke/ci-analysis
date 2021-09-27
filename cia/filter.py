@@ -29,9 +29,18 @@ from .cfg import CFG
 log = logging.getLogger(__name__)
 
 
+def drop_builds_that_did_not_start(builds):
+    kept = []
+    for b in builds:
+        if b['started_at'] is None:
+            log.info('build did not start, drop: %s', b['number'])
+            continue
+        kept.append(b)
+    return kept
+
+
 def filter_builds_based_on_build_time(builds):
     builds_kept = builds
-
     if CFG().args.ignore_builds_before:
         # tz-naive
         earliest_date = datetime.strptime(CFG().args.ignore_builds_before, "%Y-%m-%d")
@@ -48,7 +57,6 @@ def filter_builds_based_on_build_time(builds):
 
 
 def filter_builds_based_on_duration(builds):
-
     builds_kept = builds
 
     if CFG().args.ignore_builds_shorter_than:

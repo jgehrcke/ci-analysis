@@ -60,6 +60,7 @@ def main():
         load_all_builds(CFG().args.org, CFG().args.pipeline, [BuildState.FINISHED])
     )
 
+    builds = bfilter.drop_builds_that_did_not_start(builds)
 
     builds = bfilter.filter_builds_based_on_build_time(builds)
 
